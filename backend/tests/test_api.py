@@ -98,3 +98,26 @@ def test_invitation_roles_and_shared_workspace(client):
     assert client.get("/api/summary",headers=shared_viewer).json()["completed_projects"]==1
     assert client.get("/api/summary",headers=outsider).json()["clients"]==0
     assert client.post(f"/api/invitations/9999/accept",headers=owner).status_code==404
+
+def test_ticket_permissions_and_workspace_isolation(client):
+    alice=account(client,"Alice")
+    bob=account(client,"Bob")
+    c=client.post("/api/clients",headers=alice,json={"name":"Customer","email":"customer@example.org"})
+    assert c.status_code==201
+    cid=c.json()["id"]
+    assert client.get("/api/tickets").status_code==401
+    assert client.post("/api/tickets",headers=bob,json={"client_id":cid,"subject":"Unauthorized"}).status_code==404
+    r=client.post("/api/tickets",headers=alice,json={"client_id":cid,"subject":"Broken checkout","priority":"high","description":"Test ticket"})
+    assert r.status_code==201,r.text
+    tid=r.json()["id"]
+    assert client.get("/api/summary",headers=alice).json()["high_priority_tickets"]==1
+    assert client.get("/api/summary",headers=bob).json()["open_tickets"]==0
+    assert client.get("/api/tickets",headers=bob).json()==[]
+    assert client.patch(f"/api/tickets/{tid}",headers=bob,json={"status":"resolved"}).status_code==404
+    assert client.delete(f"/api/tickets/{tid}",headers=bob).status_code==404
+    assert client.post("/api/tickets",headers=alice,json={"client_id":cid,"subject":"ok","priority":"invalid"}).status_code==422
+    assert client.delete(f"/api/clients/{cid}",headers=alice).status_code==409
+    assert client.patch(f"/api/tickets/{tid}",headers=alice,json={"status":"resolved"}).status_code==200
+    assert client.get("/api/summary",headers=alice).json()["open_tickets"]==0
+    assert client.delete(f"/api/tickets/{tid}",headers=alice).status_code==204
+    assert client.delete(f"/api/clients/{cid}",headers=alice).status_code==204
