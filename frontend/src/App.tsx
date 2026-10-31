@@ -16,6 +16,7 @@ export default function App(){
  const [workspace,setWorkspace]=useState("");
  const [email,setEmail]=useState("");
  const [password,setPassword]=useState("");
+ const [signupCode,setSignupCode]=useState("");
  const [error,setError]=useState("");
  const [loading,setLoading]=useState(false);
  const [demoAvailable,setDemoAvailable]=useState(false);
@@ -32,7 +33,7 @@ export default function App(){
  async function authenticate(event:React.FormEvent){
    event.preventDefault();setError("");setLoading(true);
    try {
-     const body=formMode==="register"?{email,password,display_name:name,workspace_name:workspace}:{email,password};
+     const body=formMode==="register"?{email,password,display_name:name,workspace_name:workspace,signup_code:signupCode}:{email,password};
      const response=await api<{access_token:string}>(formMode==="register"?"/auth/register":"/auth/login",{method:"POST",body:JSON.stringify(body)});
      activeToken=response.access_token;sessionStorage.setItem("workbase_token",response.access_token);setToken(response.access_token);
    }catch(e){setError((e as Error).message)}finally{setLoading(false)}
@@ -47,11 +48,12 @@ export default function App(){
  {formMode==="register"&&!demoAvailable&&<><label>Your name<input minLength={2} maxLength={100} required value={name} onChange={e=>setName(e.target.value)}/></label>
  <label>Workspace name<input minLength={2} maxLength={100} required value={workspace} onChange={e=>setWorkspace(e.target.value)}/></label></>}
  <label>Email<input required type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
+ {formMode==="register"&&<label>Invite code<input required type="password" value={signupCode} onChange={e=>setSignupCode(e.target.value)} placeholder="Your registration code"/></label>}
  <label>Password<input required type="password" minLength={formMode==="register"?10:1} value={password} onChange={e=>setPassword(e.target.value)}/></label>
  <button type="submit" className="primary" disabled={loading}>{loading?"Working…":formMode==="register"?"Create account":"Sign in"}</button></form>}
  {demoAvailable&&<button className="demoLaunch" disabled={loading} onClick={()=>void openDemo()}>Explore read-only demo →</button>}
  {!demoAvailable&&<button className="textSwitch" onClick={()=>{setError("");setFormMode(formMode==="register"?"login":"register")}}>{formMode==="register"?"Already have an account? Sign in":"Need an account? Register"}</button>}
- <small>{demoAvailable?"Fictional records only · Read-only demo":"Local development app. Don't enter personal or real client information."}</small></div></div>;
+ <small>{demoAvailable?"Fictional records only · Read-only demo":"Private client workspace · Keep login details secure."}</small></div></div>;
 }
 
 type Client = {id:number; name:string; email:string; status:string};
@@ -117,7 +119,7 @@ function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onRefreshWork
  <button className={page==="tickets"?"selected":""} onClick={()=>setPage("tickets")}><TicketIcon size={17}/> Tickets <small>{summary.open_tickets}</small></button>
  <button className={page==="team"?"selected":""} onClick={()=>setPage("team")}><ShieldCheck size={17}/> Team</button>
  </nav><div className="sideFooter"><span className="userAvatar">{account.display_name.trim().slice(0,1).toUpperCase()}</span><span className="userMeta"><strong>{account.display_name}</strong><small>{account.email}</small></span></div></aside>
- <section className="main"><div className="topbar"><div className="crumbs">Workspace <span>/</span> <strong>{page==="overview"?"Overview":page==="clients"?"Clients":page==="projects"?"Projects":page==="tickets"?"Tickets":"Team"}</strong></div><span className="topRight"><span className="onlineDot"/> {account.email==="demo@workbase.example"?"Public demo":"Local development"}</span></div>
+ <section className="main"><div className="topbar"><div className="crumbs">Workspace <span>/</span> <strong>{page==="overview"?"Overview":page==="clients"?"Clients":page==="projects"?"Projects":page==="tickets"?"Tickets":"Team"}</strong></div><span className="topRight"><span className="onlineDot"/> {account.email==="demo@workbase.example"?"Public demo":"Workbase"}</span></div>
  <div className="workspaceSwitcher"><label><span>Current workspace</span><select value={activeWorkspace} onChange={e=>{onWorkspace(Number(e.target.value));setSearch("")}}>{workspaces.map(w=><option value={w.id} key={w.id}>{w.name} · {w.role}</option>)}</select></label><div className="accountControls"><span className="roleLabel">{current?.role}</span><button className="signOutBtn" onClick={onLogout}><LogOut size={15}/> Sign out</button></div></div>
  <main><div className="heading"><div className="eyebrow">WORKBASE / DASHBOARD</div><h1>{page==="overview"?"Good to see you.":page==="clients"?"Clients":page==="projects"?"Projects":page==="tickets"?"Tickets":"Team"}</h1><p>{page==="overview"?"Here's what's happening in your workspace.":page==="clients"?"Keep track of your client relationships.":page==="projects"?"Manage your projects and progress.":page==="tickets"?"Track and resolve client requests.":"People and permissions in your workspace."}</p></div>
  {error&&<div role="alert" className="alert">{error} <button onClick={()=>void refresh()}>Retry</button></div>}
@@ -136,7 +138,7 @@ function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onRefreshWork
  <label>Project name<input required minLength={2} maxLength={120} placeholder="Website redesign" value={projectTitle} onChange={e=>setProjectTitle(e.target.value)}/></label>
  <label>Client<select required value={projectClient} onChange={e=>setProjectClient(e.target.value)}><option value="">Select client</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><button className="primary" disabled={busy||!clients.length}>+ Add project</button></form></div>}
  <div className="panel"><div className="panelHead"><h2>Projects</h2><span>{visibleProjects.length} of {projects.length} records</span></div><div className="filterBar"><label className="searchField"><Search size={16}/><input aria-label="Search projects" placeholder="Search projects or clients" value={search} onChange={e=>setSearch(e.target.value)}/></label><select aria-label="Filter project status" value={projectFilter} onChange={e=>setProjectFilter(e.target.value)}><option value="all">All statuses</option><option value="planned">Planned</option><option value="in_progress">In progress</option><option value="done">Done</option></select></div><div className="scroll"><table><thead><tr><th>Project</th><th>Client</th><th>Status</th><th>Actions</th></tr></thead><tbody>{visibleProjects.map(p=><tr key={p.id}><td>{p.title}</td><td>{clients.find(c=>c.id===p.client_id)?.name||"Unknown"}</td><td><select aria-label={"Status "+p.title} disabled={!canEdit} value={p.status} onChange={e=>void write(()=>api("/projects/"+p.id,{method:"PATCH",body:JSON.stringify({status:e.target.value})}))}><option value="planned">Planned</option><option value="in_progress">In progress</option><option value="done">Done</option></select></td><td><button className="danger" disabled={busy||!canEdit} onClick={()=>void write(()=>api("/projects/"+p.id,{method:"DELETE"}))}>Delete</button></td></tr>)}</tbody></table></div>{!projects.length&&<p className="empty">No projects yet.</p>}</div></>}
- <p className="notice">{account.email==="demo@workbase.example"?"Public portfolio demo · Fictional records · Read-only access":"Development workspace · Use fictional information only"}</p></main></section></div>;
+ <p className="notice">{account.email==="demo@workbase.example"?"Public portfolio demo · Fictional records · Read-only access":"Your workspace · Client and ticket management"}</p></main></section></div>;
 }
 
 function Team({workspace,onUpdated}:{workspace:Workspace|undefined;onUpdated:()=>Promise<void>}){
