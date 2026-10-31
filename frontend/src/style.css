@@ -68,3 +68,257 @@
 @media(max-width:1100px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:850px){.insightsGrid{grid-template-columns:1fr}.workspaceSwitcher{padding:14px 22px}.topbar{padding:16px 22px}}
 @media(max-width:680px){.appSidebar{width:100%;min-height:0;padding:13px}.appSidebar .logo{padding:0 5px 12px;font-size:20px}.appSidebar nav{flex-wrap:wrap}.appSidebar nav button{width:auto;flex:1 1 auto;padding:10px 12px;font-size:12px}.appSidebar nav button small{display:none}.workspaceSwitcher label{flex-direction:column;align-items:flex-start;gap:6px}.workspaceSwitcher select{min-width:0;width:100%}.workspaceSwitcher{align-items:flex-end}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.insightPanel{padding:19px}.filterBar{padding:12px}.filterBar select{flex:1}.searchField{max-width:none;flex-basis:100%}}
+
+
+/* Workbase visual theme — Midnight Studio
+   Clean, high-contrast interfaces with restrained vintage-computing accents.
+   Original CSS; no paid fonts, libraries, images or external assets. */
+:root{
+  color-scheme:dark;
+  --canvas:#0e1116;
+  --sidebar:#0a0d12;
+  --surface:#181d25;
+  --surface-up:#202630;
+  --surface-hover:#272e3a;
+  --stroke:#303744;
+  --stroke-soft:#252c36;
+  --heading:#f4f1eb;
+  --body:#d3d7dc;
+  --quiet:#a4afbe;
+  --amber:#e2bc84;
+  --amber-dark:#c9a06a;
+  --mint:#8bceb0;
+  --blue:#94aee0;
+  --ink:var(--heading);
+  --muted:var(--quiet);
+  --line:var(--stroke-soft);
+}
+body{
+  background:var(--canvas);
+  color:var(--body);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select{color:inherit}
+button:focus-visible,input:focus-visible,select:focus-visible{
+  outline:2px solid var(--amber);outline-offset:3px
+}
+.shell{background:var(--canvas)}
+.main{
+  background:
+    radial-gradient(ellipse at 85% -18%,rgba(199,152,101,.055),transparent 55%),
+    var(--canvas);
+}
+main{max-width:1280px;padding-top:43px}
+.appSidebar,aside{background:var(--sidebar);color:var(--body)}
+.appSidebar{border-right:1px solid var(--stroke-soft)}
+.appSidebar .logo{
+  color:var(--heading);font-size:23px;font-weight:730;
+  letter-spacing:-1.15px
+}
+.logoGlyph{
+  border:1px solid rgba(226,188,132,.32);
+  background:#28271f;color:var(--amber);
+  border-radius:10px
+}
+.brandDot{color:var(--amber)}
+.sideLabel,.eyebrow{
+  color:var(--amber-dark);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  letter-spacing:2.1px;font-size:10px;font-weight:600
+}
+.appSidebar nav button{
+  background:transparent;
+  color:#a9b2be;
+  border:1px solid transparent;
+  border-radius:11px;
+  transition:background .16s ease,color .16s ease,border-color .16s ease
+}
+.appSidebar nav button:hover{
+  background:#1b222d;color:var(--heading);
+  border-color:#28313e
+}
+.appSidebar nav button.selected{
+  background:#252b33;border-color:#45453b;
+  color:var(--heading);box-shadow:inset 3px 0 0 var(--amber-dark)
+}
+.appSidebar nav button.selected svg{color:var(--amber)}
+.appSidebar nav button small{
+  background:#2e343e;color:#d4d7dc;font-weight:650
+}
+.appSidebar .sideFooter{border-top:1px solid var(--stroke-soft);color:var(--heading)}
+.userAvatar{
+  background:#353128;color:var(--amber);
+  border:1px solid #67533a
+}
+.userMeta strong{color:var(--heading)}
+.userMeta small{color:var(--quiet)}
+.topbar{
+  background:#12161c;
+  border-bottom:1px solid var(--stroke-soft);
+  color:var(--quiet)
+}
+.crumbs{color:var(--quiet)}
+.crumbs span{color:#616c79}
+.crumbs strong{color:var(--heading)}
+.topbar .topRight{color:var(--quiet)}
+.onlineDot{background:var(--mint);box-shadow:0 0 0 3px #8bceb01c}
+.workspaceSwitcher{
+  background:#141820;border-bottom:1px solid var(--stroke-soft)
+}
+.workspaceSwitcher label{color:var(--quiet)}
+.workspaceSwitcher select,.roleLabel,.signOutBtn{
+  background:#20252e;border:1px solid var(--stroke);
+  color:var(--heading)
+}
+.workspaceSwitcher select{color-scheme:dark}
+.roleLabel{color:var(--amber);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:600}
+.signOutBtn:hover{background:#2b313b;border-color:#515a67;color:#fff}
+.heading h1{
+  color:var(--heading);
+  font-size:clamp(30px,3.5vw,42px);
+  font-weight:710;letter-spacing:-1.55px
+}
+.heading p,.subheading{color:var(--quiet);font-size:13px}
+.metric,.panel{
+  background:var(--surface);
+  border:1px solid var(--stroke);
+  box-shadow:0 12px 40px #00000013;
+  border-radius:16px
+}
+.metric{
+  padding:25px;min-height:141px;
+  transition:border-color .16s ease,transform .16s ease
+}
+.metric:hover{border-color:#5c5550;transform:translateY(-2px)}
+.metric p{color:var(--quiet);font-size:12px;font-weight:500}
+.metric strong{
+  font-size:37px;font-weight:690;
+  letter-spacing:-1.7px;color:var(--heading)
+}
+.metric small{color:#8693a3}
+.panelHead,.filterBar{border-color:var(--stroke-soft)}
+.panelHead h2,.formPanel h2,.insightsHeading h2,
+.insightPanel h3,.empty h3{
+  color:var(--heading)
+}
+.panelHead span,.insightsHeading p,.formPanel p,.empty,
+.insightLead,.notice{color:var(--quiet)}
+.insightsHeading h2{font-size:20px}
+.insightPanel{
+  background:linear-gradient(138deg,#1b2029,#151920);
+  border-color:#343c48
+}
+.insightIcon,.ticketsIcon{
+  background:#343127;color:var(--amber);
+  border:1px solid #594938
+}
+.insightPanel h3{color:var(--heading)}
+.insightLead strong{color:var(--heading)}
+.progressMeta{color:var(--quiet)}
+.progressMeta b{color:var(--heading)}
+.progressTrack{background:#2b313c}
+.toneGreen{background:#8ccbb0}
+.toneBlue{background:#90a5c2}
+.toneNeutral{background:#7c8592}
+.toneAmber{background:var(--amber)}
+.overviewHighlights>div{
+  background:var(--surface);
+  border-color:var(--stroke);
+  color:var(--quiet);
+  border-radius:11px
+}
+.overviewHighlights strong{color:var(--heading)}
+.overviewHighlights svg{color:var(--amber)}
+.textBtn,.linkBtn{color:var(--amber);font-weight:650}
+.textBtn:hover,.linkBtn:hover{color:#ffe0b3}
+table{color:var(--body)}
+thead{background:#1b2028}
+th{
+  background:#1b2028;
+  color:var(--quiet);
+  border-color:var(--stroke-soft);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-weight:600;letter-spacing:.85px
+}
+td{border-color:var(--stroke-soft);color:#e0e2e5}
+tr:hover td{background:#ffffff06}
+.formPanel label{color:#d8dce0}
+.formPanel input,.formPanel select,td select,
+.filterBar select,.panelHead select,.authCard input,
+.searchField{
+  background:#12161d;
+  color:var(--heading);
+  border:1px solid #3a4351;
+  border-radius:9px;
+  color-scheme:dark
+}
+.formPanel input::placeholder,.searchField input::placeholder,.authCard input::placeholder{
+  color:#8793a4;opacity:1
+}
+.searchField input{background:transparent;color:var(--heading)}
+.searchField{color:var(--quiet)}
+.searchField:focus-within{outline:2px solid #957753;border-color:var(--amber-dark)}
+.filterBar select,.panelHead select{color:var(--heading)}
+.primary,.empty button{
+  background:var(--amber);
+  color:#151718;
+  border:1px solid #e9c795;
+  border-radius:10px;
+  box-shadow:0 5px 15px #00000022;
+  font-weight:720
+}
+.primary:hover:not(:disabled),.empty button:hover{
+  background:#f1d0a0;border-color:#f4d9b2
+}
+.primary:disabled{opacity:.48;cursor:not-allowed}
+.danger{
+  color:#ffb4b5;background:#3b2228;border:1px solid #6e3b43
+}
+.danger:hover:not(:disabled){background:#4b2932}
+.danger:disabled{opacity:.48;cursor:not-allowed}
+.tag{
+  color:#d6dce8;background:#2a3443;
+  border:1px solid #3b475b;border-radius:8px;text-transform:capitalize
+}
+.tag.done,.tag.active{color:#9bd6b8;background:#1b3930;border-color:#34584a}
+.ticketHigh{color:#ffbbad;background:#452c2b;border-color:#734642}
+.ticketDescription{color:var(--quiet)}
+.empty{color:var(--quiet)}
+.alert{
+  background:#3b2226;color:#ffd5d5;
+  border:1px solid #714046;border-radius:11px
+}
+.alert button{color:#ffd5d5}
+.invitation{color:var(--body)}
+.authScreen{
+  background:radial-gradient(ellipse at 50% 20%,#353024,#0e1116 70%);
+  color:var(--body)
+}
+.authCard{
+  background:#181d25;border:1px solid #3c434e;
+  box-shadow:0 20px 85px #00000055;
+  border-radius:21px;
+  padding:39px
+}
+.authLogo{color:var(--amber)}
+.authCard h1{color:var(--heading);font-size:30px;letter-spacing:-.9px}
+.authCard p,.authCard small{color:var(--quiet)}
+.authCard label{color:var(--body)}
+.authCard input{background:#10151b;color:var(--heading)}
+.authCard .textSwitch{color:var(--amber)}
+.authCard .textSwitch:hover{color:#ffdbab}
+@media(max-width:850px){
+  .metric{padding:19px;min-height:123px}
+}
+@media(max-width:680px){
+  .appSidebar{border-right:0;border-bottom:1px solid var(--stroke-soft)}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .authCard{padding:26px}
+  .workspaceSwitcher{padding:13px 18px}
+  .heading h1{font-size:32px}
+}
+@media(prefers-reduced-motion:reduce){
+  .metric,.appSidebar nav button,.progressFill{transition:none}
+  .metric:hover{transform:none}
+}
