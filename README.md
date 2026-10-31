@@ -1,139 +1,32 @@
 # Workbase
 
-**[Live public demo](https://workbase-demo.onrender.com/)** · **[Deployment details](DEPLOYMENT.md)** · **[GitHub Actions](https://github.com/damndwit/workbase-platform/actions)**
+I wanted a simple place to keep track of website projects, marketing clients, and random support requests without juggling five different tools. So I started building Workbase.
 
-A small business management web app built with React, TypeScript, FastAPI and SQLModel.
+It's a full-stack ticketing and client management project that I use to practice building a real web app, not just a static website.
 
-The current version supports user registration, login, personally owned and shared team workspaces, client records, projects, support tickets, status updates and dashboard totals. It's an early version, built independently rather than copying a SaaS template.
+**Live site:** https://workbase-demo.onrender.com/
 
-**Stack:** React, TypeScript, Vite, HTML/CSS, Python, FastAPI, SQLModel, JWT, Argon2, SQLite (local default), PostgreSQL (configurable), pytest, GitHub Actions.
+### What I built
 
-## Public portfolio demo
+- Client records and project tracking
+- Support tickets, priorities, statuses, and conversation notes
+- Team workspaces, invites, and different access levels
+- Login, registration, and account-specific data
+- Dashboard stats and quick search/filter options
 
-The app is live on the **Render Free plan** at [workbase-demo.onrender.com](https://workbase-demo.onrender.com/). Choose **Explore read-only demo** to view seeded fictional clients, projects, support tickets, and dashboard analytics without registering. Hosted registration is disabled, and API authorization enforces read-only access to the demo account. Automated tests check registration restrictions and API write restrictions.
+### Stack
 
-This public portfolio demonstration uses temporary local SQLite storage on the free Render instance. It does **not** preserve changes or guarantee continuous uptime across restarts/redeploys. The original Codespaces development database is independent. [See deployment and limitations](DEPLOYMENT.md).
+**Frontend:** TypeScript, React, HTML, CSS, Vite, Lucide icons  
+**Backend:** Python, FastAPI, Pydantic, REST APIs  
+**Database:** PostgreSQL, SQLModel, SQL, Neon  
+**Tools:** Git, GitHub, GitHub Actions, Docker, Render, pytest
 
-## Run in GitHub Codespaces
+I went with a dark, minimal UI and a few retro-style details. Mostly just wanted something clean that wouldn't be annoying to use every day.
 
-Create a Codespace for this repository. From its terminal, run the one-command startup:
+### About this project
 
-```bash
-cd /workspaces/workbase-platform
-bash scripts/dev.sh
-```
+This started as a personal learning project around full-stack development, database relationships, API design, authentication, and UI styling. I'm continuing to improve it as I learn more.
 
-This checks that ports 8000 and 5173 are free, starts FastAPI, waits for its health check, then starts Vite. Keep that terminal running, and open the forwarded **5173** port. Press **Ctrl+C** to stop it. If you have older terminals running the backend/frontend, stop those first to avoid port conflicts.
+It's a small independent project, not a commercial help desk. Free hosting has limits, and I'm still working on things like better session management, account recovery, and general production security. Don't use it for sensitive customer information.
 
-Or run the servers manually in **two terminals** from the repository root:
-
-**Terminal 1: Backend**
-```bash
-cd backend
-python -m pip install -r requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-**Terminal 2: Frontend**
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open the forwarded **5173** port. The Vite development server forwards calls to `/api` to the backend on port 8000. API docs are at forwarded port 8000, `/docs`.
-
-If port 5173 opens but the app shows an API error, check that terminal 1 is running. When developing in Codespaces, avoid exposing ports publicly.
-
-## Design
-
-Workbase uses a custom dark UI with charcoal surfaces, warm ivory text, subtle amber accents and restrained retro-computing details. The design uses local CSS and system fonts; there are no paid assets. The styling changes do not alter stored records or the backend API.
-
-## Dashboard and filtering
-
-The interface includes a workspace selector, account controls, live project/ticket progress indicators, and client/project search with status filters. Tickets can also be searched by subject, description or client and filtered by status and priority. These filters operate on records already loaded for the selected workspace; API permissions remain enforced server-side. No database migration is needed for these interface changes.
-
-## Support tickets
-
-The **Tickets** tab records client support issues with a subject, optional description, priority (low, medium or high) and status (open, in progress or resolved). The Overview dashboard counts open and high-priority tickets. Owners and Editors can create and change tickets; only Owners can delete them. Viewers have read-only access. Ticket operations check workspace membership on the server, and a client cannot be deleted while tickets reference it. These records are demo-only, with no email or external help-desk integrations.
-
-## Team roles
-
-The first account to create a workspace is its **Owner**. Owners can invite existing registered users and manage clients and projects. **Editors** may add/update projects and clients but cannot delete clients or invite members. **Viewers** can only read. Invitations appear on the invited user's Team page and require explicit acceptance. This is an in-app demonstration; no invitation emails are sent. Users retain their own personal workspace when joining another workspace.
-
-This release adds a new membership table to the existing local SQLite database using SQLModel table creation. It does not delete existing clients, projects or accounts. There is not yet a full migration or invitation expiration/revocation system.
-
-## Test the application
-
-1. Register a **demo account** with a fictional name and example.com email. Sign in if you already registered.
-2. Create a second fictional account and check that its personal workspace starts empty.
-3. In the first account, visit **Team**, invite the second account as Viewer or Editor, then sign in to the second account and accept the invitation.
-4. Use the workspace selector to switch between the personal workspace and the shared workspace; confirm Editor can manage projects but Viewer cannot change anything.
-3. Open Clients and add a fictional client with an example.com email.
-4. Change the client from Lead to Active.
-5. Open Projects, add a project for that client, and change its status to Done.
-6. Return to Overview and check whether all four dashboard totals update.
-7. Try to delete a client that still has a project; the API should block it with a conflict.
-8. Delete the project and then the client.
-
-Backend tests:
-```bash
-cd backend
-python -m pytest -q
-```
-
-Frontend type check and build:
-```bash
-cd frontend
-npm run build
-```
-
-GitHub Actions runs both checks after each push.
-
-## API routes
-
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/api/health` | Check server health |
-| POST | `/api/auth/register` | Register account and workspace |
-| POST | `/api/auth/login` | Log in and issue a bearer token |
-| GET | `/api/auth/me` | Read current account |
-| GET | `/api/workspaces` | List accessible workspaces |
-| GET | `/api/invitations` | List pending team invitations |
-| POST | `/api/invitations/{id}/accept` | Accept invitation |
-| GET | `/api/workspaces/{id}/members` | View team members |
-| POST | `/api/workspaces/{id}/invite` | Invite existing user (owner only) |
-| GET, POST | `/api/clients` | List/add clients |
-| PATCH, DELETE | `/api/clients/{id}` | Update/remove a client |
-| GET, POST | `/api/projects` | List/add projects |
-| PATCH, DELETE | `/api/projects/{id}` | Update/remove a project |
-| GET | `/api/summary` | Dashboard counts including open/high-priority tickets |
-| GET, POST | `/api/tickets` | List and create support tickets |
-| PATCH, DELETE | `/api/tickets/{id}` | Update or delete a ticket with role checks |
-
-## Database
-
-Authentication uses a fresh local SQLite file `backend/workbase_v2.db` to keep the earlier unauthenticated demo records separate rather than attempting an unsafe schema migration. The old `workbase.db` is left untouched. SQLModel creates tables on startup for this development milestone; formal database migrations are still needed for production.
-
-For PostgreSQL, install and configure a database and set `DATABASE_URL` to a valid PostgreSQL connection string (with the installed psycopg driver). SQLModel manages the initial local table creation.
-
-## Current limitations
-
-The **public Render deployment** is deliberately limited to a fictional, read-only portfolio demo. It is not a commercially hardened SaaS service or appropriate for real customer information. Its ephemeral database resets on redeployment; free instances can spin down when inactive.
-
-The **local Codespaces version** supports registration, team workspaces and CRUD for development exercises but should not be exposed as a public service without more security work. There is no email verification, invitation notification, account recovery, rate limiting, hardened browser session design, membership removal workflow or formal schema migration system. Never commit credentials; do not use real customer data.
-
-## Repository structure
-
-- `frontend/src/App.tsx` — React dashboard, forms and API interactions
-- `frontend/src/style.css` — custom responsive styling
-- `frontend/vite.config.ts` — development API proxy
-- `backend/app/main.py` — REST API routes
-- `backend/app/models.py` — SQLModel database tables
-- `backend/app/schemas.py` — typed validation contracts
-- `backend/app/database.py` — database sessions and engine
-- `backend/tests/test_api.py` — endpoint and CRUD tests
-
-This repository contains original source code for the Workbase learning project.
-
-**Status:** Public read-only demo live on Render; initial browser views and automated CI checks have passed. This does not constitute a security audit.
+**Source code:** Everything for the app is in this repository.
