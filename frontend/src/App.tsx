@@ -1,14 +1,58 @@
 import {useEffect,useState} from "react";
+type Account={id:number;email:string;display_name:string;workspace_name:string};
+export default function App(){
+ const [token,setToken]=useState(()=>sessionStorage.getItem("workbase_token")||"");
+ const [account,setAccount]=useState<Account|null>(null);
+ const [formMode,setFormMode]=useState<"login"|"register">("register");
+ const [name,setName]=useState("");
+ const [workspace,setWorkspace]=useState("");
+ const [email,setEmail]=useState("");
+ const [password,setPassword]=useState("");
+ const [error,setError]=useState("");
+ const [loading,setLoading]=useState(false);
+ activeToken=token;
+ useEffect(()=>{
+   if(!token){setAccount(null);return;}
+   api<Account>("/auth/me").then(setAccount).catch(()=>{
+     sessionStorage.removeItem("workbase_token");activeToken="";setToken("");setAccount(null);
+   });
+ },[token]);
+ function logout(){sessionStorage.removeItem("workbase_token");activeToken="";setToken("");setAccount(null);}
+ async function authenticate(event:React.FormEvent){
+   event.preventDefault();setError("");setLoading(true);
+   try {
+     const body=formMode==="register"?{email,password,display_name:name,workspace_name:workspace}:{email,password};
+     const response=await api<{access_token:string}>(formMode==="register"?"/auth/register":"/auth/login",{method:"POST",body:JSON.stringify(body)});
+     activeToken=response.access_token;sessionStorage.setItem("workbase_token",response.access_token);setToken(response.access_token);
+   }catch(e){setError((e as Error).message)}finally{setLoading(false)}
+ }
+ if(token&&!account)return <main style={{padding:40}}>Loading your workspace…</main>;
+ if(account)return <Dashboard key={account.id} account={account} onLogout={logout}/>;
+ return <div className="authScreen"><div className="authCard"><div className="authLogo">◈ workbase.</div>
+ <h1>{formMode==="register"?"Create your workspace":"Welcome back"}</h1>
+ <p>{formMode==="register"?"Set up your account and start managing clients and projects.":"Sign in to your Workbase dashboard."}</p>
+ {error&&<div className="alert" role="alert">{error}</div>}
+ <form onSubmit={authenticate}>
+ {formMode==="register"&&<><label>Your name<input minLength={2} maxLength={100} required value={name} onChange={e=>setName(e.target.value)}/></label>
+ <label>Workspace name<input minLength={2} maxLength={100} required value={workspace} onChange={e=>setWorkspace(e.target.value)}/></label></>}
+ <label>Email<input required type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
+ <label>Password<input required type="password" minLength={formMode==="register"?10:1} value={password} onChange={e=>setPassword(e.target.value)}/></label>
+ <button type="submit" className="primary" disabled={loading}>{loading?"Working…":formMode==="register"?"Create account":"Sign in"}</button></form>
+ <button className="textSwitch" onClick={()=>{setError("");setFormMode(formMode==="register"?"login":"register")}}>{formMode==="register"?"Already have an account? Sign in":"Need an account? Register"}</button>
+ <small>Local development app. Don't enter personal or real client information.</small></div></div>;
+}
+
 type Client = {id:number; name:string; email:string; status:string};
 type Project = {id:number; title:string; client_id:number; status:string};
 type Summary = {clients:number;active_clients:number;projects:number;completed_projects:number};
 type Page = "overview"|"clients"|"projects";
+let activeToken = "";
 async function api<T>(path:string, options?:RequestInit):Promise<T>{
- const response=await fetch("/api"+path,{...options,headers:{"Content-Type":"application/json",...options?.headers}});
+ const response=await fetch("/api"+path,{...options,headers:{"Content-Type":"application/json",...(activeToken ? {Authorization:"Bearer "+activeToken}:{}),...options?.headers}});
  if(!response.ok) throw new Error("Request failed ("+response.status+"). Check your inputs and backend.");
  return response.status===204 ? undefined as T : await response.json() as T;
 }
-export default function App(){
+function Dashboard({account,onLogout}:{account:Account;onLogout:()=>void}){
  const [page,setPage]=useState<Page>("overview");
  const [clients,setClients]=useState<Client[]>([]);
  const [projects,setProjects]=useState<Project[]>([]);
@@ -49,5 +93,5 @@ export default function App(){
  <label>Project name<input required minLength={2} maxLength={120} placeholder="Website redesign" value={projectTitle} onChange={e=>setProjectTitle(e.target.value)}/></label>
  <label>Client<select required value={projectClient} onChange={e=>setProjectClient(e.target.value)}><option value="">Select client</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><button className="primary" disabled={busy||!clients.length}>+ Add project</button></form></div>
  <div className="panel"><div className="panelHead"><h2>Projects</h2><span>{projects.length} records</span></div><div className="scroll"><table><thead><tr><th>Project</th><th>Client</th><th>Status</th><th>Actions</th></tr></thead><tbody>{projects.map(p=><tr key={p.id}><td>{p.title}</td><td>{clients.find(c=>c.id===p.client_id)?.name||"Unknown"}</td><td><select aria-label={"Status "+p.title} value={p.status} onChange={e=>void write(()=>api("/projects/"+p.id,{method:"PATCH",body:JSON.stringify({status:e.target.value})}))}><option value="planned">Planned</option><option value="in_progress">In progress</option><option value="done">Done</option></select></td><td><button className="danger" disabled={busy} onClick={()=>void write(()=>api("/projects/"+p.id,{method:"DELETE"}))}>Delete</button></td></tr>)}</tbody></table></div>{!projects.length&&<p className="empty">No projects yet.</p>}</div></>}
- <p className="notice">This first release has no authentication or workspace isolation. Run it locally with sample data only.</p></main></section></div>;
+ <p className="notice">Signed in as {account.display_name} · {account.workspace_name}. Local development only.</p><button onClick={onLogout}>Sign out</button></main></section></div>;
 }
