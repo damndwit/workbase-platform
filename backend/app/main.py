@@ -19,9 +19,9 @@ async def lifespan(app: FastAPI):
     create_tables()
     yield
 
-app = FastAPI(title="Workbase API", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Workbase API", version="0.3.0", lifespan=lifespan)
 origins = os.getenv("FRONTEND_ORIGINS","http://localhost:5173").split(",")
-app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=["GET","POST","PATCH","DELETE"],allow_headers=["Content-Type","Authorization"])
+app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=["GET","POST","PATCH","DELETE"],allow_headers=["Content-Type","Authorization","X-Workspace-Id"])
 
 @app.get("/api/health")
 def health(): return {"status":"ok"}
