@@ -22,6 +22,7 @@ class AccountRead(BaseModel):
     email: EmailStr
     display_name: str
     workspace_name: str
+    home_workspace_id: int
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -67,3 +68,28 @@ class DashboardSummary(BaseModel):
     active_clients: int
     projects: int
     completed_projects: int
+
+TeamRole = Literal["editor", "viewer"]
+WorkspaceRole = Literal["owner", "editor", "viewer"]
+
+class WorkspaceRead(BaseModel):
+    id: int
+    name: str
+    role: WorkspaceRole
+
+class InvitationCreate(BaseModel):
+    email: EmailStr
+    role: TeamRole = "viewer"
+
+class InvitationRead(BaseModel):
+    id: int
+    workspace_id: int
+    workspace_name: str
+    role: TeamRole
+
+class MemberRead(BaseModel):
+    id: int
+    email: EmailStr
+    display_name: str
+    role: WorkspaceRole
+    accepted: bool
