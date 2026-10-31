@@ -46,3 +46,14 @@ class WorkspaceMember(SQLModel, table=True):
     role: str = Field(default="viewer")  # editor or viewer
     accepted: bool = Field(default=False)
     created_at: datetime = Field(default_factory=utc_now)
+
+class SupportTicket(SQLModel, table=True):
+    """A customer support issue tied to one workspace and client."""
+    id: int | None = Field(default=None, primary_key=True)
+    workspace_id: int = Field(foreign_key="workspace.id", index=True)
+    client_id: int = Field(foreign_key="client.id", index=True)
+    subject: str = Field(max_length=140)
+    description: str = Field(default="", max_length=2000)
+    priority: str = Field(default="medium", index=True)
+    status: str = Field(default="open", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
