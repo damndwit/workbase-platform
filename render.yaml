@@ -1,13 +1,23 @@
-# Hosting config. Render settings override this on the live service.
+# Deployment settings for the live Workbase ticketing app.
 services:
   - type: web
-    name: workbase-demo
+    name: workbaseticket
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
     envVars:
       - key: ENVIRONMENT
-        value: public_demo
+        value: production
       - key: PUBLIC_DEMO_MODE
+        value: "0"
+      - key: WORKBASE_GUEST_PREVIEW
         value: "1"
+      - key: WORKBASE_PUBLIC_URL
+        value: https://workbaseticket.onrender.com
+      - key: DATABASE_URL
+        sync: false
+      - key: WORKBASE_SIGNUP_CODE
+        sync: false
+      - key: WORKBASE_SECRET_KEY
+        generateValue: true
