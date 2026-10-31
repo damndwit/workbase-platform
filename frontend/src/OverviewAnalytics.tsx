@@ -12,6 +12,7 @@ type Props = {
   onTickets: () => void;
 };
 
+// Tiny progress bar. No chart library needed.
 function ProgressRow({ label, count, total, tone }: { label: string; count: number; total: number; tone: string }) {
   const percent = total ? Math.round((count / total) * 100) : 0;
   return (
@@ -24,6 +25,7 @@ function ProgressRow({ label, count, total, tone }: { label: string; count: numb
   );
 }
 
+// Count projects and tickets from real workspace data.
 export default function OverviewAnalytics({ projects, tickets, clients, onProjects, onTickets }: Props) {
   const completed = projects.filter(p => p.status === "done").length;
   const inProgress = projects.filter(p => p.status === "in_progress").length;
