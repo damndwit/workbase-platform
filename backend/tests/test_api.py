@@ -63,3 +63,38 @@ def test_isolated_crud(client):
     assert client.get("/api/summary",headers=alice).json()["completed_projects"]==1
     assert client.delete(f"/api/projects/{pid}",headers=alice).status_code==204
     assert client.delete(f"/api/clients/{cid}",headers=alice).status_code==204
+
+def test_invitation_roles_and_shared_workspace(client):
+    owner=account(client,"Owner")
+    editor=account(client,"Editor")
+    viewer=account(client,"Viewer")
+    outsider=account(client,"Outsider")
+    owner_ws=client.get("/api/auth/me",headers=owner).json()["home_workspace_id"]
+    owner_client=client.post("/api/clients",headers=owner,json={"name":"Shared Client","email":"shared@example.org"})
+    assert owner_client.status_code==201
+    client_id=owner_client.json()["id"]
+    for user_email,role in (("editor@example.org","editor"),("viewer@example.org","viewer")):
+        created=client.post(f"/api/workspaces/{owner_ws}/invite",headers=owner,json={"email":user_email,"role":role})
+        assert created.status_code==201, created.text
+    assert client.post(f"/api/workspaces/{owner_ws}/invite",headers=outsider,json={"email":"owner@example.org","role":"viewer"}).status_code==403
+    assert client.get(f"/api/workspaces/{owner_ws}/members",headers=outsider).status_code==403
+    assert client.get("/api/clients",headers={**viewer,"X-Workspace-Id":str(owner_ws)}).status_code==403
+    for auth in (editor,viewer):
+        pending=client.get("/api/invitations",headers=auth).json()
+        assert len(pending)==1
+        assert client.post(f"/api/invitations/{pending[0]['id']}/accept",headers=auth).status_code==204
+        assert len(client.get("/api/workspaces",headers=auth).json())==2
+    shared_editor={**editor,"X-Workspace-Id":str(owner_ws)}
+    shared_viewer={**viewer,"X-Workspace-Id":str(owner_ws)}
+    assert len(client.get("/api/clients",headers=shared_editor).json())==1
+    assert len(client.get("/api/clients",headers=shared_viewer).json())==1
+    assert client.post("/api/clients",headers=shared_viewer,json={"name":"No write","email":"no@example.org"}).status_code==403
+    assert client.delete(f"/api/clients/{client_id}",headers=shared_editor).status_code==403
+    created=client.post("/api/projects",headers=shared_editor,json={"title":"Shared project","client_id":client_id})
+    assert created.status_code==201,created.text
+    pid=created.json()["id"]
+    assert client.patch(f"/api/projects/{pid}",headers=shared_viewer,json={"status":"done"}).status_code==403
+    assert client.patch(f"/api/projects/{pid}",headers=shared_editor,json={"status":"done"}).status_code==200
+    assert client.get("/api/summary",headers=shared_viewer).json()["completed_projects"]==1
+    assert client.get("/api/summary",headers=outsider).json()["clients"]==0
+    assert client.post(f"/api/invitations/9999/accept",headers=owner).status_code==404
