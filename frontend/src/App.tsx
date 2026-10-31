@@ -55,8 +55,23 @@ type Page = "overview"|"clients"|"projects"|"team"|"tickets";
 let activeToken = "";
 let workspaceId = 0;
 async function api<T>(path:string, options?:RequestInit):Promise<T>{
- const response=await fetch("/api"+path,{...options,headers:{"Content-Type":"application/json",...(activeToken ? {Authorization:"Bearer "+activeToken}:{}),...(workspaceId ? {"X-Workspace-Id":String(workspaceId)}:{}),...options?.headers}});
- if(!response.ok) throw new Error("Request failed ("+response.status+"). Check your inputs and backend.");
+ let response:Response;
+ try {
+  response=await fetch("/api"+path,{...options,headers:{"Content-Type":"application/json",...(activeToken ? {Authorization:"Bearer "+activeToken}:{}),...(workspaceId ? {"X-Workspace-Id":String(workspaceId)}:{}),...options?.headers}});
+ } catch {
+  throw new Error("Cannot reach the Workbase API. Restart both servers with: bash scripts/dev.sh");
+ }
+ if(!response.ok){
+  if(response.status>=500){
+   // A stopped FastAPI server can appear as HTTP 500 from Vite's development proxy.
+   const health=await fetch("/api/health",{cache:"no-store"}).catch(()=>null);
+   if(!health||!health.ok) throw new Error("FastAPI is not responding on port 8000. Restart Workbase using bash scripts/dev.sh");
+   throw new Error("Backend error (HTTP "+response.status+"). Check the FastAPI terminal for the Python traceback.");
+  }
+  const body=await response.json().catch(()=>null);
+  const detail=body&&typeof body.detail==="string"?body.detail:null;
+  throw new Error(detail||("Request failed (HTTP "+response.status+")."));
+ }
  return response.status===204 ? undefined as T : await response.json() as T;
 }
 function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onRefreshWorkspaces,onLogout}:{account:Account;workspaces:Workspace[];activeWorkspace:number;onWorkspace:(id:number)=>void;onRefreshWorkspaces:()=>Promise<void>;onLogout:()=>void}){
