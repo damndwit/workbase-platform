@@ -8,6 +8,7 @@ from app.database import get_session
 from app.main import app
 from app import models  # noqa: F401
 
+# Fresh temporary database for each test.
 @pytest.fixture
 def client():
     with tempfile.TemporaryDirectory() as temp:
@@ -20,6 +21,7 @@ def client():
         app.dependency_overrides.clear()
         engine.dispose()
 
+# Shortcut for making fake test accounts.
 def account(client,name):
     response=client.post("/api/auth/register",json={
         "display_name":name,"workspace_name":name+" Studio",
@@ -28,6 +30,7 @@ def account(client,name):
     assert response.status_code==201,response.text
     return {"Authorization":"Bearer "+response.json()["access_token"]}
 
+# Private data shouldn't be public.
 def test_requires_login(client):
     assert client.get("/api/health").status_code==200
     for route in ("/api/clients","/api/projects","/api/summary","/api/auth/me"):
@@ -42,6 +45,7 @@ def test_register_login_and_invalid_login(client):
         "display_name":"Alice","workspace_name":"Duplicate","email":"alice@example.org","password":"correct-horse-demo-123",
     }).status_code==409
 
+# Users can't edit each other's records.
 def test_isolated_crud(client):
     alice=account(client,"Alice");bob=account(client,"Bob")
     response=client.post("/api/clients",headers=alice,json={"name":"Alpha","email":"alpha@example.org","status":"active"})
@@ -64,6 +68,7 @@ def test_isolated_crud(client):
     assert client.delete(f"/api/projects/{pid}",headers=alice).status_code==204
     assert client.delete(f"/api/clients/{cid}",headers=alice).status_code==204
 
+# Owner, editor, and viewer rules.
 def test_invitation_roles_and_shared_workspace(client):
     owner=account(client,"Owner")
     editor=account(client,"Editor")
@@ -99,6 +104,7 @@ def test_invitation_roles_and_shared_workspace(client):
     assert client.get("/api/summary",headers=outsider).json()["clients"]==0
     assert client.post(f"/api/invitations/9999/accept",headers=owner).status_code==404
 
+# Keep tickets in the right workspace.
 def test_ticket_permissions_and_workspace_isolation(client):
     alice=account(client,"Alice")
     bob=account(client,"Bob")
@@ -152,6 +158,7 @@ def test_public_demo_is_read_only_and_registration_disabled(client,monkeypatch):
     assert client.post("/api/projects",headers=headers,json={"title":"Forbidden project","client_id":1}).status_code==403
     assert client.post("/api/tickets",headers=headers,json={"subject":"Forbidden issue","client_id":1}).status_code==403
 
+# Notes need the same access checks.
 def test_ticket_conversation_stays_in_workspace(client):
     alice=account(client,"Alice");bob=account(client,"Bob")
     c=client.post("/api/clients",headers=alice,json={"name":"Studio","email":"studio@example.org"})
@@ -165,6 +172,7 @@ def test_ticket_conversation_stays_in_workspace(client):
     assert client.get(path,headers=bob).status_code==404
     assert client.delete(f"/api/tickets/{ticket.json()['id']}",headers=alice).status_code==204
 
+# Guest preview stays read-only.
 def test_guest_preview_does_not_change_regular_accounts(client, monkeypatch):
     from app import main, security
     from app.database import get_session
