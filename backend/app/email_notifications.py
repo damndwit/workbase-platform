@@ -16,21 +16,21 @@ def send_team_invitation(address: str, workspace: str, inviter: str, role: str) 
     if not api_key or not sender:
         return "not_configured"
 
-    site = (os.getenv("WORKBASE_PUBLIC_URL") or os.getenv("RENDER_EXTERNAL_URL") or "https://workbase-demo.onrender.com").rstrip("/")
+    site = (os.getenv("WORKBASE_PUBLIC_URL") or os.getenv("RENDER_EXTERNAL_URL") or "https://workbaseticket.onrender.com").rstrip("/")
     message = (
         f"{inviter} invited you to join {workspace} on Workbase as a {role}.\n\n"
         f"Open {site}, sign in using your existing account, then open Team "
         "to accept the invitation.\n\n"
         "If you weren't expecting this, you can ignore the message."
     )
-# Brevo uses this JSON format.
+    # Brevo uses this JSON format.
     payload = {
         "sender": {"name": "Workbase", "email": sender},
         "to": [{"email": address}],
         "subject": f"Invitation to {workspace} on Workbase",
         "textContent": message,
     }
-# HTTP API instead of SMTP on free hosting.
+    # HTTP API instead of SMTP on free hosting.
     request = Request(
         "https://api.brevo.com/v3/smtp/email",
         data=json.dumps(payload).encode("utf-8"),
