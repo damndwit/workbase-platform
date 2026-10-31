@@ -68,7 +68,7 @@ def owned_workspace(user: User, session: Session) -> Workspace:
 def workspace_access(user: User, session: Session, workspace_id: int | None = None):
     own = owned_workspace(user, session)
     target_id = workspace_id if workspace_id is not None else own.id
-    if PUBLIC_DEMO_MODE and user.email == DEMO_EMAIL:
+    if (PUBLIC_DEMO_MODE or os.getenv("WORKBASE_GUEST_PREVIEW", "0") == "1") and user.email == DEMO_EMAIL:
         if target_id != own.id:
             raise HTTPException(403, "Demo access is restricted to its sample workspace")
         return own, "viewer"
