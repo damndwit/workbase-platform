@@ -1,5 +1,6 @@
 """Workbase protected API for individual demo workspaces."""
 from contextlib import asynccontextmanager
+import secrets
 from pathlib import Path
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,12 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 from .database import create_tables, get_session, engine
-from .models import Client, Project, User, Workspace, WorkspaceMember, SupportTicket
+from .models import Client, Project, User, Workspace, WorkspaceMember, SupportTicket, TicketComment
 from .security import current_user, hash_password, verify_password, token_for_user, owned_workspace, workspace_access, require_role, ENVIRONMENT, PUBLIC_DEMO_MODE, DEMO_EMAIL
 from .schemas import (
     RegisterRequest, LoginRequest, TokenResponse, AccountRead,
     ClientCreate, ClientRead, ClientUpdate, ProjectCreate, ProjectRead,
-    ProjectUpdate, DashboardSummary, WorkspaceRead, InvitationCreate, InvitationRead, MemberRead, TicketCreate, TicketRead, TicketUpdate,
+    ProjectUpdate, DashboardSummary, WorkspaceRead, InvitationCreate, InvitationRead, MemberRead, TicketCreate, TicketRead, TicketUpdate, TicketCommentCreate, TicketCommentRead,
 )
 
 @asynccontextmanager
@@ -58,8 +59,12 @@ def health(): return {"status":"ok","demo_available":ENVIRONMENT in ("production
 
 @app.post("/api/auth/register",response_model=TokenResponse,status_code=201)
 def register(body:RegisterRequest,session:Session=Depends(get_session)):
-    if ENVIRONMENT in ("production", "public_demo"):
-        raise HTTPException(403, "Registration is disabled on this public portfolio demo")
+    if ENVIRONMENT == "public_demo":
+        raise HTTPException(403, "Registration disabled in demo mode")
+    if ENVIRONMENT == "production":
+        code = os.getenv("WORKBASE_SIGNUP_CODE", "")
+        if len(code) < 16 or not secrets.compare_digest(body.signup_code or "", code):
+            raise HTTPException(403, "A valid invite code is required to register")
     email=str(body.email).lower()
     if session.exec(select(User).where(User.email==email)).first():
         raise HTTPException(409,"Account already exists")
@@ -116,6 +121,8 @@ def accept_invitation(invitation_id:int,user:User=Depends(current_user),session:
     member=session.get(WorkspaceMember,invitation_id)
     if not member or member.user_id!=user.id or member.accepted:
         raise HTTPException(404,"Invitation not found")
+    if PUBLIC_DEMO_MODE and user.email == DEMO_EMAIL:
+        raise HTTPException(403,"Read-only account")
     member.accepted=True
     session.add(member);session.commit()
 
@@ -256,7 +263,28 @@ def delete_ticket(ticket_id:int,user:User=Depends(current_user),session:Session=
     ws,role=workspace_access(user,session,x_workspace_id)
     require_role(role,("owner",))
     item=find_ticket(ticket_id,ws.id,session)
+    session.exec(select(TicketComment).where(TicketComment.ticket_id==ticket_id,TicketComment.workspace_id==ws.id)).all()
+    for note in session.exec(select(TicketComment).where(TicketComment.ticket_id==ticket_id,TicketComment.workspace_id==ws.id)).all():
+        session.delete(note)
     session.delete(item);session.commit()
+
+
+@app.get("/api/tickets/{ticket_id}/comments",response_model=list[TicketCommentRead])
+def ticket_comments(ticket_id:int,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,_=workspace_access(user,session,x_workspace_id)
+    find_ticket(ticket_id,ws.id,session)
+    notes=session.exec(select(TicketComment).where(TicketComment.ticket_id==ticket_id,TicketComment.workspace_id==ws.id).order_by(TicketComment.id)).all()
+    return [TicketCommentRead(id=n.id,ticket_id=n.ticket_id,author=session.get(User,n.user_id).display_name,body=n.body,created_at=n.created_at) for n in notes]
+
+@app.post("/api/tickets/{ticket_id}/comments",response_model=TicketCommentRead,status_code=201)
+def add_ticket_comment(ticket_id:int,body:TicketCommentCreate,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id)
+    require_role(role,("owner","editor"))
+    find_ticket(ticket_id,ws.id,session)
+    comment=TicketComment(ticket_id=ticket_id,workspace_id=ws.id,user_id=user.id,body=body.body.strip())
+    if not comment.body: raise HTTPException(422,"A comment cannot be empty")
+    session.add(comment);session.commit();session.refresh(comment)
+    return TicketCommentRead(id=comment.id,ticket_id=comment.ticket_id,author=user.display_name,body=comment.body,created_at=comment.created_at)
 
 # Same-origin static hosting: React built by Vite and served with the FastAPI API.
 DIST_DIR = Path(__file__).resolve().parents[2] / "frontend" / "dist"
