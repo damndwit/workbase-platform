@@ -57,3 +57,11 @@ class SupportTicket(SQLModel, table=True):
     priority: str = Field(default="medium", index=True)
     status: str = Field(default="open", index=True)
     created_at: datetime = Field(default_factory=utc_now)
+
+class TicketComment(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    workspace_id: int = Field(foreign_key="workspace.id", index=True)
+    ticket_id: int = Field(foreign_key="supportticket.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    body: str = Field(max_length=2000)
+    created_at: datetime = Field(default_factory=utc_now)
