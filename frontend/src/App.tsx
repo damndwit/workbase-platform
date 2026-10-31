@@ -2,6 +2,7 @@ import {useEffect,useState} from "react";
 type Account={id:number;email:string;display_name:string;workspace_name:string;home_workspace_id:number};
 type Workspace={id:number;name:string;role:"owner"|"editor"|"viewer"};
 type Invitation={id:number;workspace_id:number;workspace_name:string;role:string};
+type Ticket={id:number;client_id:number;subject:string;description:string;priority:"low"|"medium"|"high";status:"open"|"in_progress"|"resolved"};
 type Member={id:number;email:string;display_name:string;role:string;accepted:boolean};
 export default function App(){
  const [token,setToken]=useState(()=>sessionStorage.getItem("workbase_token")||"");
@@ -49,8 +50,8 @@ export default function App(){
 
 type Client = {id:number; name:string; email:string; status:string};
 type Project = {id:number; title:string; client_id:number; status:string};
-type Summary = {clients:number;active_clients:number;projects:number;completed_projects:number};
-type Page = "overview"|"clients"|"projects"|"team";
+type Summary = {clients:number;active_clients:number;projects:number;completed_projects:number;open_tickets:number;high_priority_tickets:number};
+type Page = "overview"|"clients"|"projects"|"team"|"tickets";
 let activeToken = "";
 let workspaceId = 0;
 async function api<T>(path:string, options?:RequestInit):Promise<T>{
@@ -65,7 +66,8 @@ function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onRefreshWork
  const [page,setPage]=useState<Page>("overview");
  const [clients,setClients]=useState<Client[]>([]);
  const [projects,setProjects]=useState<Project[]>([]);
- const [summary,setSummary]=useState<Summary>({clients:0,active_clients:0,projects:0,completed_projects:0});
+ const [tickets,setTickets]=useState<Ticket[]>([]);
+ const [summary,setSummary]=useState<Summary>({clients:0,active_clients:0,projects:0,completed_projects:0,open_tickets:0,high_priority_tickets:0});
  const [error,setError]=useState("");
  const [clientName,setClientName]=useState("");
  const [clientEmail,setClientEmail]=useState("");
@@ -73,8 +75,8 @@ function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onRefreshWork
  const [projectClient,setProjectClient]=useState("");
  const [busy,setBusy]=useState(false);
  async function refresh(){
-  try{const [c,p,s]=await Promise.all([api<Client[]>("/clients"),api<Project[]>("/projects"),api<Summary>("/summary")]);
-   setClients(c);setProjects(p);setSummary(s);setError("");
+  try{const [c,p,s,t]=await Promise.all([api<Client[]>("/clients"),api<Project[]>("/projects"),api<Summary>("/summary"),api<Ticket[]>("/tickets")]);
+   setClients(c);setProjects(p);setSummary(s);setTickets(t);setError("");
   }catch(e){setError((e as Error).message+" Start FastAPI on port 8000.")}
  }
  useEffect(()=>{void refresh()},[]);
@@ -86,15 +88,17 @@ function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onRefreshWork
  <button className={page==="overview"?"selected":""} onClick={()=>setPage("overview")}>▦ &nbsp; Overview</button>
  <button className={page==="clients"?"selected":""} onClick={()=>setPage("clients")}>♧ &nbsp; Clients <small>{clients.length}</small></button>
  <button className={page==="projects"?"selected":""} onClick={()=>setPage("projects")}>▤ &nbsp; Projects <small>{projects.length}</small></button>
+ <button className={page==="tickets"?"selected":""} onClick={()=>setPage("tickets")}>▧ &nbsp; Tickets <small>{summary.open_tickets}</small></button>
  <button className={page==="team"?"selected":""} onClick={()=>setPage("team")}>◉ &nbsp; Team</button>
  </nav><div className="sideFooter"><b>D</b> Demo workspace <small>Local use only</small></div></aside>
- <section className="main"><div className="topbar">Workspace <span>/</span> {page==="overview"?"Overview":page==="clients"?"Clients":page==="projects"?"Projects":"Team"} <span className="topRight">v0.3 · local demo</span></div>
+ <section className="main"><div className="topbar">Workspace <span>/</span> {page==="overview"?"Overview":page==="clients"?"Clients":page==="projects"?"Projects":page==="tickets"?"Tickets":"Team"} <span className="topRight">v0.4 · local demo</span></div>
  <div className="workspaceSwitcher"><label>Active workspace <select value={activeWorkspace} onChange={e=>onWorkspace(Number(e.target.value))}>{workspaces.map(w=><option value={w.id} key={w.id}>{w.name} ({w.role})</option>)}</select></label></div>
- <main><div className="heading"><div className="eyebrow">WORKBASE / DASHBOARD</div><h1>{page==="overview"?"Good to see you.":page==="clients"?"Clients":"Projects"}</h1><p>{page==="overview"?"Here's what's happening in your workspace.":page==="clients"?"Keep track of your client relationships.":page==="projects"?"Manage your projects and progress.":"People and permissions in your workspace."}</p></div>
+ <main><div className="heading"><div className="eyebrow">WORKBASE / DASHBOARD</div><h1>{page==="overview"?"Good to see you.":page==="clients"?"Clients":page==="projects"?"Projects":page==="tickets"?"Tickets":"Team"}</h1><p>{page==="overview"?"Here's what's happening in your workspace.":page==="clients"?"Keep track of your client relationships.":page==="projects"?"Manage your projects and progress.":page==="tickets"?"Track and resolve client requests.":"People and permissions in your workspace."}</p></div>
  {error&&<div role="alert" className="alert">{error} <button onClick={()=>void refresh()}>Retry</button></div>}
  {page==="team"&&<Team key={activeWorkspace} workspace={current} onUpdated={onRefreshWorkspaces}/>}
+ {page==="tickets"&&<Tickets clients={clients} tickets={tickets} canEdit={canEdit} canDelete={current?.role==="owner"} submit={write} busy={busy}/>}
  {page==="overview"&&<><div className="metrics">
- {([["Total clients",summary.clients],["Active clients",summary.active_clients],["Projects",summary.projects],["Completed",summary.completed_projects]] as [string,number][]).map(([name,count])=><div className="metric" key={name}><p>{name}</p><strong>{count}</strong><small>Workspace overview</small></div>)}</div>
+ {([["Total clients",summary.clients],["Active clients",summary.active_clients],["Projects",summary.projects],["Completed",summary.completed_projects],["Open tickets",summary.open_tickets],["High priority",summary.high_priority_tickets]] as [string,number][]).map(([name,count])=><div className="metric" key={name}><p>{name}</p><strong>{count}</strong><small>Workspace overview</small></div>)}</div>
  <div className="panel"><div className="panelHead"><h2>Recent projects</h2><button className="linkBtn" onClick={()=>setPage("projects")}>View all →</button></div>
  {projects.length?<div className="scroll"><table><thead><tr><th>Project</th><th>Client</th><th>Status</th></tr></thead><tbody>{projects.slice(0,5).map(p=><tr key={p.id}><td>{p.title}</td><td>{clients.find(c=>c.id===p.client_id)?.name||"Unknown"}</td><td><span className="tag">{statusText(p.status)}</span></td></tr>)}</tbody></table></div>:<div className="empty">No projects yet. Add a client, then create a project.</div>}</div></>}
  {page==="clients"&&<>{canEdit&&<div className="panel formPanel"><h2>New client</h2><form onSubmit={e=>{e.preventDefault();void write(async()=>{await api("/clients",{method:"POST",body:JSON.stringify({name:clientName,email:clientEmail})});setClientName("");setClientEmail("")})}}>
@@ -122,4 +126,26 @@ function Team({workspace,onUpdated}:{workspace:Workspace|undefined;onUpdated:()=
  <div className="scroll"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Access</th></tr></thead><tbody>{members.map(m=><tr key={m.id}><td>{m.display_name}</td><td>{m.email}</td><td>{m.role}</td><td>{m.accepted?"Active":"Invited"}</td></tr>)}</tbody></table></div></div>
  {workspace?.role==="owner"&&<div className="panel formPanel"><h2>Invite a member</h2><p>The person must already have a Workbase account. Invitations appear inside their Team page.</p><form onSubmit={e=>{e.preventDefault();void run(async()=>{await api("/workspaces/"+workspace.id+"/invite",{method:"POST",body:JSON.stringify({email,role})});setEmail("");setMessage("Invitation created.")})}}><label>Email<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Role<select value={role} onChange={e=>setRole(e.target.value)}><option value="viewer">Viewer</option><option value="editor">Editor</option></select></label><button className="primary">Invite</button></form></div>}
  <div className="panel formPanel"><h2>Your pending invitations</h2>{invitations.length===0?<p>No pending invitations.</p>:invitations.map(i=><div className="invitation" key={i.id}><span>{i.workspace_name} · {i.role}</span><button className="primary" onClick={()=>void run(()=>api("/invitations/"+i.id+"/accept",{method:"POST"}))}>Accept</button></div>)}</div></>;
+}
+
+function Tickets({clients,tickets,canEdit,canDelete,submit,busy}:{clients:Client[];tickets:Ticket[];canEdit:boolean;canDelete:boolean;submit:(fn:()=>Promise<unknown>)=>Promise<void>;busy:boolean}){
+ const [subject,setSubject]=useState("");
+ const [description,setDescription]=useState("");
+ const [clientId,setClientId]=useState("");
+ const [priority,setPriority]=useState("medium");
+ const [filter,setFilter]=useState("all");
+ const visible=tickets.filter(t=>filter==="all"||t.status===filter);
+ return <>
+ {canEdit&&<div className="panel formPanel"><h2>New support ticket</h2><p>Log an issue for a client in your workspace.</p>
+ <form onSubmit={e=>{e.preventDefault();void submit(async()=>{await api("/tickets",{method:"POST",body:JSON.stringify({client_id:Number(clientId),subject,description,priority})});setSubject("");setDescription("")})}}>
+ <label>Client<select value={clientId} required onChange={e=>setClientId(e.target.value)}><option value="">Choose client</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+ <label>Subject<input value={subject} required minLength={3} maxLength={140} onChange={e=>setSubject(e.target.value)} placeholder="Client needs help"/></label>
+ <label>Priority<select value={priority} onChange={e=>setPriority(e.target.value)}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+ <label>Description<input value={description} maxLength={2000} onChange={e=>setDescription(e.target.value)} placeholder="Issue details (optional)"/></label>
+ <button className="primary" disabled={busy||!clients.length}>+ Create ticket</button></form></div>}
+ <div className="panel"><div className="panelHead"><h2>Support tickets</h2><label>Filter <select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></label></div>
+ <div className="scroll"><table><thead><tr><th>Ticket</th><th>Client</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+ {visible.map(t=><tr key={t.id}><td><strong>{t.subject}</strong>{t.description&&<small className="ticketDescription">{t.description}</small>}</td><td>{clients.find(c=>c.id===t.client_id)?.name||"Unknown"}</td><td><span className={"tag "+(t.priority==="high"?"ticketHigh":"")}>{t.priority}</span></td><td><select aria-label={"Ticket status "+t.subject} disabled={!canEdit} value={t.status} onChange={e=>void submit(()=>api("/tickets/"+t.id,{method:"PATCH",body:JSON.stringify({status:e.target.value})}))}><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></td>
+ <td><button className="danger" disabled={!canDelete||busy} onClick={()=>void submit(()=>api("/tickets/"+t.id,{method:"DELETE"}))}>Delete</button></td></tr>)}
+ </tbody></table></div>{visible.length===0&&<p className="empty">No tickets match this view.</p>}</div></>;
 }
