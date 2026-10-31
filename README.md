@@ -2,7 +2,7 @@
 
 A small business management web app built with React, TypeScript, FastAPI and SQLModel.
 
-The current version supports user registration, login, personally owned and shared team workspaces, client records, projects, status updates and dashboard totals. It's an early version, built independently rather than copying a SaaS template.
+The current version supports user registration, login, personally owned and shared team workspaces, client records, projects, support tickets, status updates and dashboard totals. It's an early version, built independently rather than copying a SaaS template.
 
 **Stack:** React, TypeScript, Vite, HTML/CSS, Python, FastAPI, SQLModel, JWT, Argon2, SQLite (local default), PostgreSQL (configurable), pytest, GitHub Actions.
 
@@ -27,6 +27,10 @@ npm run dev
 Open the forwarded **5173** port. The Vite development server forwards calls to `/api` to the backend on port 8000. API docs are at forwarded port 8000, `/docs`.
 
 If port 5173 opens but the app shows an API error, check that terminal 1 is running. When developing in Codespaces, avoid exposing ports publicly.
+
+## Support tickets
+
+The **Tickets** tab records client support issues with a subject, optional description, priority (low, medium or high) and status (open, in progress or resolved). The Overview dashboard counts open and high-priority tickets. Owners and Editors can create and change tickets; only Owners can delete them. Viewers have read-only access. Ticket operations check workspace membership on the server, and a client cannot be deleted while tickets reference it. These records are demo-only, with no email or external help-desk integrations.
 
 ## Team roles
 
@@ -78,7 +82,9 @@ GitHub Actions runs both checks after each push.
 | PATCH, DELETE | `/api/clients/{id}` | Update/remove a client |
 | GET, POST | `/api/projects` | List/add projects |
 | PATCH, DELETE | `/api/projects/{id}` | Update/remove a project |
-| GET | `/api/summary` | Dashboard counts |
+| GET | `/api/summary` | Dashboard counts including open/high-priority tickets |
+| GET, POST | `/api/tickets` | List and create support tickets |
+| PATCH, DELETE | `/api/tickets/{id}` | Update or delete a ticket with role checks |
 
 ## Database
 
@@ -103,4 +109,4 @@ For PostgreSQL, install and configure a database and set `DATABASE_URL` to a val
 
 This repository contains original source code for the Workbase learning project.
 
-**Status:** Team membership and permissions code committed. Review the latest CI results and test invitations in two different demo accounts.
+**Status:** Support tickets added as the next local development milestone. Confirm the current GitHub Actions run and test ticket creation, filtering, status changes and permissions in Codespaces.
