@@ -1,4 +1,4 @@
-"""SQLModel tables for Workbase's first client/project management release."""
+"""Database tables for individual user-owned Workbase demo workspaces."""
 from datetime import datetime, timezone
 
 from sqlmodel import Field, SQLModel
@@ -6,8 +6,22 @@ from sqlmodel import Field, SQLModel
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
+class User(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    email: str = Field(index=True, unique=True, max_length=160)
+    display_name: str = Field(max_length=100)
+    password_hash: str = Field(max_length=255)
+    created_at: datetime = Field(default_factory=utc_now)
+
+class Workspace(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=100)
+    owner_id: int = Field(foreign_key="user.id", index=True, unique=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
 class Client(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    workspace_id: int = Field(foreign_key="workspace.id", index=True)
     name: str = Field(index=True, max_length=100)
     email: str = Field(max_length=160)
     status: str = Field(default="lead", index=True)
@@ -15,6 +29,7 @@ class Client(SQLModel, table=True):
 
 class Project(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    workspace_id: int = Field(foreign_key="workspace.id", index=True)
     title: str = Field(index=True, max_length=120)
     client_id: int = Field(foreign_key="client.id", index=True)
     status: str = Field(default="planned", index=True)
