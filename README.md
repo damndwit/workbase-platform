@@ -2,9 +2,9 @@
 
 A small business management web app built with React, TypeScript, FastAPI and SQLModel.
 
-Right now it supports client records, projects, status updates, and a dashboard with live counts. It's an early version, built independently rather than copying a SaaS template.
+The current version supports user registration, login, personally owned workspaces, client records, projects, status updates and dashboard totals. It's an early version, built independently rather than copying a SaaS template.
 
-**Stack:** React, TypeScript, Vite, HTML/CSS, Python, FastAPI, SQLModel, SQLite (local default), PostgreSQL (configurable), pytest, GitHub Actions.
+**Stack:** React, TypeScript, Vite, HTML/CSS, Python, FastAPI, SQLModel, JWT, Argon2, SQLite (local default), PostgreSQL (configurable), pytest, GitHub Actions.
 
 ## Run in GitHub Codespaces
 
@@ -30,12 +30,14 @@ If port 5173 opens but the app shows an API error, check that terminal 1 is runn
 
 ## Test the application
 
-1. Open Clients and add a fictional client with an example.com email.
-2. Change the client from Lead to Active.
-3. Open Projects, add a project for that client, and change its status to Done.
-4. Return to Overview and check whether all four dashboard totals update.
-5. Try to delete a client that still has a project; the API should block it with a conflict.
-6. Delete the project and then the client.
+1. Register a **demo account** with a fictional name and example.com email. Sign in if you already registered.
+2. Create a second fictional account and check that each workspace has separate client and project lists.
+3. Open Clients and add a fictional client with an example.com email.
+4. Change the client from Lead to Active.
+5. Open Projects, add a project for that client, and change its status to Done.
+6. Return to Overview and check whether all four dashboard totals update.
+7. Try to delete a client that still has a project; the API should block it with a conflict.
+8. Delete the project and then the client.
 
 Backend tests:
 ```bash
@@ -56,6 +58,9 @@ GitHub Actions runs both checks after each push.
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | Check server health |
+| POST | `/api/auth/register` | Register account and workspace |
+| POST | `/api/auth/login` | Log in and issue a bearer token |
+| GET | `/api/auth/me` | Read current account |
 | GET, POST | `/api/clients` | List/add clients |
 | PATCH, DELETE | `/api/clients/{id}` | Update/remove a client |
 | GET, POST | `/api/projects` | List/add projects |
@@ -64,11 +69,13 @@ GitHub Actions runs both checks after each push.
 
 ## Database
 
-The initial release uses SQLite for simple local setup. For PostgreSQL, install and configure a database and set `DATABASE_URL` to a valid PostgreSQL connection string (with the installed psycopg driver). SQLModel manages the initial local table creation.
+Authentication uses a fresh local SQLite file `backend/workbase_v2.db` to keep the earlier unauthenticated demo records separate rather than attempting an unsafe schema migration. The old `workbase.db` is left untouched. SQLModel creates tables on startup for this development milestone; formal database migrations are still needed for production.
+
+For PostgreSQL, install and configure a database and set `DATABASE_URL` to a valid PostgreSQL connection string (with the installed psycopg driver). SQLModel manages the initial local table creation.
 
 ## Current limitations
 
-**Do not deploy this application publicly yet.** This first milestone intentionally has **no user authentication or tenant/workspace isolation**. Anyone able to access its API could modify all data. Use fictional demo data and local/Codespaces development only. Authentication, database migrations, organization-level authorization, more advanced SaaS features and production deployment will be implemented separately.
+**Do not deploy this application publicly yet.** Registration, password hashing, signed bearer tokens, and owner-scoped API access are implemented for local testing, but this is **not a production security review**. No email verification, account recovery, rate limiting, robust session management or schema migrations exist yet. Only use fictional sample data. The default signing secret is ephemeral and changes when the backend restarts; this intentionally signs out existing sessions. For persistent local sessions, set `WORKBASE_SECRET_KEY` as a private environment variable; never commit it to GitHub. Token storage in browser sessionStorage is a developmental choice, not hardened production session design.
 
 ## Repository structure
 
@@ -83,4 +90,4 @@ The initial release uses SQLite for simple local setup. For PostgreSQL, install 
 
 This repository contains original source code for the Workbase learning project.
 
-**Status:** Initial files committed; review CI results and perform the browser acceptance checks before describing the release as fully tested.
+**Status:** Login and isolated-workspace code committed; confirm CI results and run browser tests before calling the upgrade fully tested.
