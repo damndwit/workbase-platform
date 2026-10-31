@@ -1,17 +1,17 @@
 """Workbase protected API for individual demo workspaces."""
 from contextlib import asynccontextmanager
 import os
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 from .database import create_tables, get_session
-from .models import Client, Project, User, Workspace
-from .security import current_user, hash_password, verify_password, token_for_user, owned_workspace
+from .models import Client, Project, User, Workspace, WorkspaceMember
+from .security import current_user, hash_password, verify_password, token_for_user, owned_workspace, workspace_access, require_role
 from .schemas import (
     RegisterRequest, LoginRequest, TokenResponse, AccountRead,
     ClientCreate, ClientRead, ClientUpdate, ProjectCreate, ProjectRead,
-    ProjectUpdate, DashboardSummary,
+    ProjectUpdate, DashboardSummary, WorkspaceRead, InvitationCreate, InvitationRead, MemberRead,
 )
 
 @asynccontextmanager
@@ -53,16 +53,63 @@ def login(body:LoginRequest,session:Session=Depends(get_session)):
 @app.get("/api/auth/me",response_model=AccountRead)
 def me(user:User=Depends(current_user),session:Session=Depends(get_session)):
     ws=owned_workspace(user,session)
-    return AccountRead(id=user.id,email=user.email,display_name=user.display_name,workspace_name=ws.name)
+    return AccountRead(id=user.id,email=user.email,display_name=user.display_name,workspace_name=ws.name,home_workspace_id=ws.id)
+
+
+@app.get("/api/workspaces",response_model=list[WorkspaceRead])
+def workspaces(user:User=Depends(current_user),session:Session=Depends(get_session)):
+    home=owned_workspace(user,session)
+    result=[WorkspaceRead(id=home.id,name=home.name,role="owner")]
+    memberships=session.exec(select(WorkspaceMember).where(WorkspaceMember.user_id==user.id,WorkspaceMember.accepted==True)).all()
+    for member in memberships:
+        ws=session.get(Workspace,member.workspace_id)
+        if ws: result.append(WorkspaceRead(id=ws.id,name=ws.name,role=member.role))
+    return result
+
+@app.get("/api/invitations",response_model=list[InvitationRead])
+def invitations(user:User=Depends(current_user),session:Session=Depends(get_session)):
+    rows=session.exec(select(WorkspaceMember).where(WorkspaceMember.user_id==user.id,WorkspaceMember.accepted==False)).all()
+    return [InvitationRead(id=m.id,workspace_id=m.workspace_id,workspace_name=session.get(Workspace,m.workspace_id).name,role=m.role) for m in rows]
+
+@app.post("/api/invitations/{invitation_id}/accept",status_code=204)
+def accept_invitation(invitation_id:int,user:User=Depends(current_user),session:Session=Depends(get_session)):
+    member=session.get(WorkspaceMember,invitation_id)
+    if not member or member.user_id!=user.id or member.accepted:
+        raise HTTPException(404,"Invitation not found")
+    member.accepted=True
+    session.add(member);session.commit()
+
+@app.get("/api/workspaces/{workspace_id}/members",response_model=list[MemberRead])
+def workspace_members(workspace_id:int,user:User=Depends(current_user),session:Session=Depends(get_session)):
+    ws,role=workspace_access(user,session,workspace_id)
+    owner=session.get(User,ws.owner_id)
+    rows=[MemberRead(id=owner.id,email=owner.email,display_name=owner.display_name,role="owner",accepted=True)]
+    for m in session.exec(select(WorkspaceMember).where(WorkspaceMember.workspace_id==ws.id)).all():
+        member=session.get(User,m.user_id)
+        if member: rows.append(MemberRead(id=member.id,email=member.email,display_name=member.display_name,role=m.role,accepted=m.accepted))
+    return rows
+
+@app.post("/api/workspaces/{workspace_id}/invite",status_code=201)
+def invite_user(workspace_id:int,body:InvitationCreate,user:User=Depends(current_user),session:Session=Depends(get_session)):
+    ws,role=workspace_access(user,session,workspace_id)
+    require_role(role,("owner",))
+    invited=session.exec(select(User).where(User.email==str(body.email).lower())).first()
+    if not invited: raise HTTPException(404,"Ask the person to create a demo account first")
+    if invited.id==user.id: raise HTTPException(400,"Cannot invite yourself")
+    existing=session.exec(select(WorkspaceMember).where(WorkspaceMember.workspace_id==ws.id,WorkspaceMember.user_id==invited.id)).first()
+    if existing: raise HTTPException(409,"User already invited or a member")
+    membership=WorkspaceMember(workspace_id=ws.id,user_id=invited.id,role=body.role)
+    session.add(membership);session.commit()
+    return {"message":"Invitation saved. Recipient can accept after signing in."}
 
 @app.get("/api/clients",response_model=list[ClientRead])
-def list_clients(user:User=Depends(current_user),session:Session=Depends(get_session)):
-    ws=owned_workspace(user,session)
+def list_clients(user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id)
     return session.exec(select(Client).where(Client.workspace_id==ws.id).order_by(Client.id.desc())).all()
 
 @app.post("/api/clients",response_model=ClientRead,status_code=201)
-def add_client(body:ClientCreate,user:User=Depends(current_user),session:Session=Depends(get_session)):
-    ws=owned_workspace(user,session)
+def add_client(body:ClientCreate,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id);require_role(role,['owner','editor'])
     item=Client(**body.model_dump(),workspace_id=ws.id)
     session.add(item);session.commit();session.refresh(item)
     return item
@@ -78,8 +125,8 @@ def find_project(project_id:int,workspace_id:int,session:Session):
     return item
 
 @app.patch("/api/clients/{client_id}",response_model=ClientRead)
-def edit_client(client_id:int,body:ClientUpdate,user:User=Depends(current_user),session:Session=Depends(get_session)):
-    ws=owned_workspace(user,session);item=find_client(client_id,ws.id,session)
+def edit_client(client_id:int,body:ClientUpdate,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id);require_role(role,['owner','editor']);item=find_client(client_id,ws.id,session)
     for key,value in body.model_dump(exclude_unset=True).items():
         if value is None:raise HTTPException(422,"Fields cannot be null")
         setattr(item,key,value)
@@ -87,28 +134,28 @@ def edit_client(client_id:int,body:ClientUpdate,user:User=Depends(current_user),
     return item
 
 @app.delete("/api/clients/{client_id}",status_code=204)
-def delete_client(client_id:int,user:User=Depends(current_user),session:Session=Depends(get_session)):
-    ws=owned_workspace(user,session);item=find_client(client_id,ws.id,session)
+def delete_client(client_id:int,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id);require_role(role,['owner']);item=find_client(client_id,ws.id,session)
     if session.exec(select(Project).where(Project.client_id==client_id,Project.workspace_id==ws.id)).first():
         raise HTTPException(409,"Delete the client's projects first")
     session.delete(item);session.commit()
 
 @app.get("/api/projects",response_model=list[ProjectRead])
-def list_projects(user:User=Depends(current_user),session:Session=Depends(get_session)):
-    ws=owned_workspace(user,session)
+def list_projects(user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id)
     return session.exec(select(Project).where(Project.workspace_id==ws.id).order_by(Project.id.desc())).all()
 
 @app.post("/api/projects",response_model=ProjectRead,status_code=201)
-def add_project(body:ProjectCreate,user:User=Depends(current_user),session:Session=Depends(get_session)):
-    ws=owned_workspace(user,session)
+def add_project(body:ProjectCreate,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id);require_role(role,['owner','editor'])
     find_client(body.client_id,ws.id,session)
     item=Project(**body.model_dump(),workspace_id=ws.id)
     session.add(item);session.commit();session.refresh(item)
     return item
 
 @app.patch("/api/projects/{project_id}",response_model=ProjectRead)
-def edit_project(project_id:int,body:ProjectUpdate,user:User=Depends(current_user),session:Session=Depends(get_session)):
-    ws=owned_workspace(user,session);item=find_project(project_id,ws.id,session)
+def edit_project(project_id:int,body:ProjectUpdate,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id);require_role(role,['owner','editor']);item=find_project(project_id,ws.id,session)
     for key,value in body.model_dump(exclude_unset=True).items():
         if value is None:raise HTTPException(422,"Fields cannot be null")
         setattr(item,key,value)
@@ -116,13 +163,13 @@ def edit_project(project_id:int,body:ProjectUpdate,user:User=Depends(current_use
     return item
 
 @app.delete("/api/projects/{project_id}",status_code=204)
-def delete_project(project_id:int,user:User=Depends(current_user),session:Session=Depends(get_session)):
-    ws=owned_workspace(user,session);item=find_project(project_id,ws.id,session)
+def delete_project(project_id:int,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id);require_role(role,['owner']);item=find_project(project_id,ws.id,session)
     session.delete(item);session.commit()
 
 @app.get("/api/summary",response_model=DashboardSummary)
-def summary(user:User=Depends(current_user),session:Session=Depends(get_session)):
-    ws=owned_workspace(user,session)
+def summary(user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id)
     clients=session.exec(select(Client).where(Client.workspace_id==ws.id)).all()
     projects=session.exec(select(Project).where(Project.workspace_id==ws.id)).all()
     return DashboardSummary(clients=len(clients),active_clients=sum(c.status=="active" for c in clients),
