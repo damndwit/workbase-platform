@@ -4,7 +4,7 @@ I wanted one place to deal with freelance website stuff, marketing clients, and 
 
 It's a personal full-stack project. I started with a basic dashboard, got the frontend talking to a Python API, and kept adding things I would actually want in a client portal.
 
-**[Live site](https://workbase-demo.onrender.com/)** · **[My GitHub](https://github.com/damndwit)**
+**[Live site](https://workbaseticket.onrender.com/)** · **[My GitHub](https://github.com/damndwit)**
 
 ## What I worked on
 
