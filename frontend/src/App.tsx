@@ -11,13 +11,16 @@ export default function App(){
  const [account,setAccount]=useState<Account|null>(null);
  const [workspaces,setWorkspaces]=useState<Workspace[]>([]);
  const [activeWorkspace,setActiveWorkspace]=useState(0);
- const [formMode,setFormMode]=useState<"login"|"register">("register");
+ const [formMode,setFormMode]=useState<"login"|"register">("login");
  const [name,setName]=useState("");
  const [workspace,setWorkspace]=useState("");
  const [email,setEmail]=useState("");
  const [password,setPassword]=useState("");
  const [error,setError]=useState("");
  const [loading,setLoading]=useState(false);
+ const [demoAvailable,setDemoAvailable]=useState(false);
+ useEffect(()=>{void fetch("/api/health").then(r=>r.json()).then(d=>setDemoAvailable(d.demo_available===true)).catch(()=>{})},[]);
+ async function openDemo(){setLoading(true);setError("");try{const response=await api<{access_token:string}>("/auth/demo",{method:"POST"});activeToken=response.access_token;sessionStorage.setItem("workbase_token",response.access_token);setToken(response.access_token)}catch(e){setError((e as Error).message)}finally{setLoading(false)}}
  activeToken=token;
  useEffect(()=>{
    if(!token){setAccount(null);return;}
@@ -37,17 +40,18 @@ export default function App(){
  if(token&&(!account||!activeWorkspace))return <main style={{padding:40}}>Loading your workspace…</main>;
  if(account&&activeWorkspace)return <Dashboard key={account.id+"-"+activeWorkspace} account={account} workspaces={workspaces} activeWorkspace={activeWorkspace} onWorkspace={setActiveWorkspace} onRefreshWorkspaces={async()=>{const all=await api<Workspace[]>("/workspaces");setWorkspaces(all)}} onLogout={logout}/>;
  return <div className="authScreen"><div className="authCard"><div className="authLogo">◈ workbase.</div>
- <h1>{formMode==="register"?"Create your workspace":"Welcome back"}</h1>
- <p>{formMode==="register"?"Set up your account and start managing clients and projects.":"Sign in to your Workbase dashboard."}</p>
+ <h1>{formMode==="register"&&!demoAvailable?"Create your workspace":"Welcome back"}</h1>
+ <p>{demoAvailable?"Explore a sample workspace with fictional client and project data.":formMode==="register"?"Set up your account and start managing clients and projects.":"Sign in to your Workbase dashboard."}</p>
  {error&&<div className="alert" role="alert">{error}</div>}
- <form onSubmit={authenticate}>
- {formMode==="register"&&<><label>Your name<input minLength={2} maxLength={100} required value={name} onChange={e=>setName(e.target.value)}/></label>
+ {!demoAvailable&&<form onSubmit={authenticate}>
+ {formMode==="register"&&!demoAvailable&&<><label>Your name<input minLength={2} maxLength={100} required value={name} onChange={e=>setName(e.target.value)}/></label>
  <label>Workspace name<input minLength={2} maxLength={100} required value={workspace} onChange={e=>setWorkspace(e.target.value)}/></label></>}
  <label>Email<input required type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
  <label>Password<input required type="password" minLength={formMode==="register"?10:1} value={password} onChange={e=>setPassword(e.target.value)}/></label>
- <button type="submit" className="primary" disabled={loading}>{loading?"Working…":formMode==="register"?"Create account":"Sign in"}</button></form>
- <button className="textSwitch" onClick={()=>{setError("");setFormMode(formMode==="register"?"login":"register")}}>{formMode==="register"?"Already have an account? Sign in":"Need an account? Register"}</button>
- <small>Local development app. Don't enter personal or real client information.</small></div></div>;
+ <button type="submit" className="primary" disabled={loading}>{loading?"Working…":formMode==="register"?"Create account":"Sign in"}</button></form>}
+ {demoAvailable&&<button className="demoLaunch" disabled={loading} onClick={()=>void openDemo()}>Explore read-only demo →</button>}
+ {!demoAvailable&&<button className="textSwitch" onClick={()=>{setError("");setFormMode(formMode==="register"?"login":"register")}}>{formMode==="register"?"Already have an account? Sign in":"Need an account? Register"}</button>}
+ <small>{demoAvailable?"Fictional records only · Read-only demo":"Local development app. Don't enter personal or real client information."}</small></div></div>;
 }
 
 type Client = {id:number; name:string; email:string; status:string};
