@@ -7,10 +7,6 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: ENVIRONMENT
-        value: production
+        value: public_demo
       - key: PUBLIC_DEMO_MODE
         value: "1"
-      - key: WORKBASE_SECRET_KEY
-        generateValue: true
-      - key: DATABASE_URL
-        sync: false
