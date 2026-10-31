@@ -121,3 +121,33 @@ def test_ticket_permissions_and_workspace_isolation(client):
     assert client.get("/api/summary",headers=alice).json()["open_tickets"]==0
     assert client.delete(f"/api/tickets/{tid}",headers=alice).status_code==204
     assert client.delete(f"/api/clients/{cid}",headers=alice).status_code==204
+
+def test_public_demo_is_read_only_and_registration_disabled(client,monkeypatch):
+    from app import main,security
+    from app.models import User,Workspace
+    from app.security import hash_password
+    from app.database import get_session
+
+    # Use the fixture's database override to insert the same identity used in production.
+    session_generator = app.dependency_overrides[get_session]()
+    with next(session_generator) as session:
+        demo=User(email=security.DEMO_EMAIL,display_name="Demo Visitor",password_hash=hash_password("random-test-password"))
+        session.add(demo)
+        session.flush()
+        session.add(Workspace(name="Sample workspace",owner_id=demo.id))
+        session.commit()
+
+    monkeypatch.setattr(main,"ENVIRONMENT","production")
+    monkeypatch.setattr(main,"PUBLIC_DEMO_MODE",True)
+    monkeypatch.setattr(security,"PUBLIC_DEMO_MODE",True)
+    assert client.post("/api/auth/register",json={
+       "display_name":"Another User","workspace_name":"Another Team","email":"another@example.org","password":"safe-demo-password"
+    }).status_code==403
+    response=client.post("/api/auth/demo")
+    assert response.status_code==200,response.text
+    headers={"Authorization":"Bearer "+response.json()["access_token"]}
+    assert client.get("/api/clients",headers=headers).status_code==200
+    assert client.get("/api/workspaces",headers=headers).status_code==200
+    assert client.post("/api/clients",headers=headers,json={"name":"Forbidden","email":"forbidden@example.org"}).status_code==403
+    assert client.post("/api/projects",headers=headers,json={"title":"Forbidden project","client_id":1}).status_code==403
+    assert client.post("/api/tickets",headers=headers,json={"subject":"Forbidden issue","client_id":1}).status_code==403
