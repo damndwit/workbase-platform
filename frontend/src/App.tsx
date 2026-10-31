@@ -165,6 +165,25 @@ function Tickets({clients,tickets,canEdit,canDelete,submit,busy}:{clients:Client
  const [filter,setFilter]=useState("all");
  const [priorityFilter,setPriorityFilter]=useState("all");
  const [ticketQuery,setTicketQuery]=useState("");
+ const [selectedTicket,setSelectedTicket]=useState<number|null>(null);
+ const [notes,setNotes]=useState<{id:number;author:string;body:string;created_at:string}[]>([]);
+ const [noteText,setNoteText]=useState("");
+ const [noteError,setNoteError]=useState("");
+ async function openTicket(id:number){
+   if(selectedTicket===id){setSelectedTicket(null);return;}
+   setNoteError("");
+   try{setNotes(await api("/tickets/"+id+"/comments"));setSelectedTicket(id)}
+   catch(e){setNoteError((e as Error).message)}
+ }
+ async function saveNote(){
+   if(selectedTicket===null||!noteText.trim())return;
+   setNoteError("");
+   try{
+      await api("/tickets/"+selectedTicket+"/comments",{method:"POST",body:JSON.stringify({body:noteText.trim()})});
+      setNotes(await api("/tickets/"+selectedTicket+"/comments"));
+      setNoteText("");
+   }catch(e){setNoteError((e as Error).message)}
+ }
  const visible=tickets.filter(t=>(filter==="all"||t.status===filter)&&(priorityFilter==="all"||t.priority===priorityFilter)&&[t.subject,t.description,clients.find(c=>c.id===t.client_id)?.name||""].some(v=>v.toLowerCase().includes(ticketQuery.toLowerCase())));
  return <>
  {canEdit&&<div className="panel formPanel"><h2>New support ticket</h2><p>Log an issue for a client in your workspace.</p>
@@ -176,7 +195,8 @@ function Tickets({clients,tickets,canEdit,canDelete,submit,busy}:{clients:Client
  <button className="primary" disabled={busy||!clients.length}>+ Create ticket</button></form></div>}
  <div className="panel"><div className="panelHead"><h2>Support tickets</h2><span>{visible.length} of {tickets.length} tickets</span></div><div className="filterBar"><label className="searchField"><Search size={16}/><input aria-label="Search tickets" placeholder="Search tickets or clients" value={ticketQuery} onChange={e=>setTicketQuery(e.target.value)}/></label><select aria-label="Filter ticket status" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select><select aria-label="Filter ticket priority" value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value)}><option value="all">All priorities</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></div>
  <div className="scroll"><table><thead><tr><th>Ticket</th><th>Client</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead><tbody>
- {visible.map(t=><tr key={t.id}><td><strong>{t.subject}</strong>{t.description&&<small className="ticketDescription">{t.description}</small>}</td><td>{clients.find(c=>c.id===t.client_id)?.name||"Unknown"}</td><td><span className={"tag "+(t.priority==="high"?"ticketHigh":"")}>{t.priority}</span></td><td><select aria-label={"Ticket status "+t.subject} disabled={!canEdit} value={t.status} onChange={e=>void submit(()=>api("/tickets/"+t.id,{method:"PATCH",body:JSON.stringify({status:e.target.value})}))}><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></td>
+ {visible.map(t=><tr key={t.id}><td><button className="ticketSubject" onClick={()=>void openTicket(t.id)}>{t.subject}</button>{t.description&&<small className="ticketDescription">{t.description}</small>}</td><td>{clients.find(c=>c.id===t.client_id)?.name||"Unknown"}</td><td><span className={"tag "+(t.priority==="high"?"ticketHigh":"")}>{t.priority}</span></td><td><select aria-label={"Ticket status "+t.subject} disabled={!canEdit} value={t.status} onChange={e=>void submit(()=>api("/tickets/"+t.id,{method:"PATCH",body:JSON.stringify({status:e.target.value})}))}><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></td>
  <td><button className="danger" disabled={!canDelete||busy} onClick={()=>void submit(()=>api("/tickets/"+t.id,{method:"DELETE"}))}>Delete</button></td></tr>)}
- </tbody></table></div>{visible.length===0&&<p className="empty">No tickets match this view.</p>}</div></>;
+ </tbody></table></div>{visible.length===0&&<p className="empty">No tickets match this view.</p>}</div>
+ {selectedTicket!==null&&<div className="panel formPanel ticketNotes"><h2>Ticket #{selectedTicket} · Notes</h2><p>Keep a running log of what happened on this request.</p>{noteError&&<p role="alert">{noteError}</p>}{notes.length?notes.map(n=><div className="note" key={n.id}><strong>{n.author}</strong> <small>{new Date(n.created_at).toLocaleString()}</small><p>{n.body}</p></div>):<p>No notes yet.</p>}{canEdit&&<form onSubmit={e=>{e.preventDefault();void saveNote()}}><label>New note<textarea required maxLength={2000} value={noteText} onChange={e=>setNoteText(e.target.value)} placeholder="Any updates?"/></label><button className="primary">Add note</button></form>}</div>}</>;
 }
