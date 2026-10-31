@@ -19,6 +19,7 @@ from .schemas import (
     ProjectUpdate, DashboardSummary, WorkspaceRead, InvitationCreate, InvitationRead, MemberRead, TicketCreate, TicketRead, TicketUpdate, TicketCommentCreate, TicketCommentRead,
 )
 
+# Set up tables and sample guest data once.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_tables()
@@ -58,6 +59,7 @@ app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=["GET","PO
 @app.get("/api/health")
 def health(): return {"status":"ok","demo_available":ENVIRONMENT in ("production", "public_demo") and (PUBLIC_DEMO_MODE or os.getenv("WORKBASE_GUEST_PREVIEW","0")=="1")}
 
+# Signup has a private code on the hosted app.
 @app.post("/api/auth/register",response_model=TokenResponse,status_code=201)
 def register(body:RegisterRequest,session:Session=Depends(get_session)):
     if ENVIRONMENT == "public_demo":
@@ -81,6 +83,7 @@ def register(body:RegisterRequest,session:Session=Depends(get_session)):
     session.refresh(user)
     return TokenResponse(access_token=token_for_user(user))
 
+# Guest preview stays read-only.
 @app.post("/api/auth/demo",response_model=TokenResponse)
 def demo_login(session:Session=Depends(get_session)):
     if ENVIRONMENT not in ("production", "public_demo") or not (PUBLIC_DEMO_MODE or os.getenv("WORKBASE_GUEST_PREVIEW","0")=="1"):
@@ -89,6 +92,7 @@ def demo_login(session:Session=Depends(get_session)):
     if user is None: raise HTTPException(503,"Demo not initialized")
     return TokenResponse(access_token=token_for_user(user))
 
+# Check the password, then make a session token.
 @app.post("/api/auth/login",response_model=TokenResponse)
 def login(body:LoginRequest,session:Session=Depends(get_session)):
     user=session.exec(select(User).where(User.email==str(body.email).lower())).first()
@@ -102,6 +106,7 @@ def me(user:User=Depends(current_user),session:Session=Depends(get_session)):
     return AccountRead(id=user.id,email=user.email,display_name=user.display_name,workspace_name=ws.name,home_workspace_id=ws.id)
 
 
+# Only show workspaces this account can reach.
 @app.get("/api/workspaces",response_model=list[WorkspaceRead])
 def workspaces(user:User=Depends(current_user),session:Session=Depends(get_session)):
     home=owned_workspace(user,session)
@@ -137,6 +142,7 @@ def workspace_members(workspace_id:int,user:User=Depends(current_user),session:S
         if member: rows.append(MemberRead(id=member.id,email=member.email,display_name=member.display_name,role=m.role,accepted=m.accepted))
     return rows
 
+# Team invites need owner access.
 @app.post("/api/workspaces/{workspace_id}/invite",status_code=201)
 def invite_user(workspace_id:int,body:InvitationCreate,user:User=Depends(current_user),session:Session=Depends(get_session)):
     ws,role=workspace_access(user,session,workspace_id)
@@ -151,11 +157,13 @@ def invite_user(workspace_id:int,body:InvitationCreate,user:User=Depends(current
     delivery=send_team_invitation(invited.email,ws.name,user.display_name,body.role)
     return {"message":"Invitation saved. Recipient can accept after signing in.","email_status":delivery}
 
+# Client records stay with their workspace.
 @app.get("/api/clients",response_model=list[ClientRead])
 def list_clients(user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
     ws,role=workspace_access(user,session,x_workspace_id)
     return session.exec(select(Client).where(Client.workspace_id==ws.id).order_by(Client.id.desc())).all()
 
+# Editors can add clients too.
 @app.post("/api/clients",response_model=ClientRead,status_code=201)
 def add_client(body:ClientCreate,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
     ws,role=workspace_access(user,session,x_workspace_id);require_role(role,['owner','editor'])
@@ -191,6 +199,7 @@ def delete_client(client_id:int,user:User=Depends(current_user),session:Session=
         raise HTTPException(409,"Delete the client's projects first")
     session.delete(item);session.commit()
 
+# Only the selected team's projects.
 @app.get("/api/projects",response_model=list[ProjectRead])
 def list_projects(user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
     ws,role=workspace_access(user,session,x_workspace_id)
@@ -218,6 +227,7 @@ def delete_project(project_id:int,user:User=Depends(current_user),session:Sessio
     ws,role=workspace_access(user,session,x_workspace_id);require_role(role,['owner']);item=find_project(project_id,ws.id,session)
     session.delete(item);session.commit()
 
+# Dashboard counts from the saved records.
 @app.get("/api/summary",response_model=DashboardSummary)
 def summary(user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
     ws,role=workspace_access(user,session,x_workspace_id)
@@ -234,6 +244,7 @@ def list_tickets(user:User=Depends(current_user),session:Session=Depends(get_ses
     ws,_=workspace_access(user,session,x_workspace_id)
     return session.exec(select(SupportTicket).where(SupportTicket.workspace_id==ws.id).order_by(SupportTicket.id.desc())).all()
 
+# New request tied to a client.
 @app.post("/api/tickets",response_model=TicketRead,status_code=201)
 def create_ticket(body:TicketCreate,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
     ws,role=workspace_access(user,session,x_workspace_id)
@@ -265,12 +276,12 @@ def delete_ticket(ticket_id:int,user:User=Depends(current_user),session:Session=
     ws,role=workspace_access(user,session,x_workspace_id)
     require_role(role,("owner",))
     item=find_ticket(ticket_id,ws.id,session)
-    session.exec(select(TicketComment).where(TicketComment.ticket_id==ticket_id,TicketComment.workspace_id==ws.id)).all()
     for note in session.exec(select(TicketComment).where(TicketComment.ticket_id==ticket_id,TicketComment.workspace_id==ws.id)).all():
         session.delete(note)
     session.delete(item);session.commit()
 
 
+# Ticket history lives here.
 @app.get("/api/tickets/{ticket_id}/comments",response_model=list[TicketCommentRead])
 def ticket_comments(ticket_id:int,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
     ws,_=workspace_access(user,session,x_workspace_id)
@@ -278,6 +289,7 @@ def ticket_comments(ticket_id:int,user:User=Depends(current_user),session:Sessio
     notes=session.exec(select(TicketComment).where(TicketComment.ticket_id==ticket_id,TicketComment.workspace_id==ws.id).order_by(TicketComment.id)).all()
     return [TicketCommentRead(id=n.id,ticket_id=n.ticket_id,author=session.get(User,n.user_id).display_name,body=n.body,created_at=n.created_at) for n in notes]
 
+# Save a note under the current account.
 @app.post("/api/tickets/{ticket_id}/comments",response_model=TicketCommentRead,status_code=201)
 def add_ticket_comment(ticket_id:int,body:TicketCommentCreate,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
     ws,role=workspace_access(user,session,x_workspace_id)
