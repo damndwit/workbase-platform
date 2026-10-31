@@ -8,6 +8,7 @@ from urllib.request import Request, urlopen
 log = logging.getLogger(__name__)
 
 
+# Email's optional; the in-app invite works either way.
 def send_team_invitation(address: str, workspace: str, inviter: str, role: str) -> str:
     # Email is optional. Never block an invite just because the sender isn't set up.
     api_key = os.getenv("BREVO_API_KEY", "").strip()
@@ -22,12 +23,14 @@ def send_team_invitation(address: str, workspace: str, inviter: str, role: str) 
         "to accept the invitation.\n\n"
         "If you weren't expecting this, you can ignore the message."
     )
+# Brevo uses this JSON format.
     payload = {
         "sender": {"name": "Workbase", "email": sender},
         "to": [{"email": address}],
         "subject": f"Invitation to {workspace} on Workbase",
         "textContent": message,
     }
+# HTTP API instead of SMTP on free hosting.
     request = Request(
         "https://api.brevo.com/v3/smtp/email",
         data=json.dumps(payload).encode("utf-8"),
