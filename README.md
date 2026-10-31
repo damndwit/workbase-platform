@@ -37,6 +37,10 @@ Open the forwarded **5173** port. The Vite development server forwards calls to 
 
 If port 5173 opens but the app shows an API error, check that terminal 1 is running. When developing in Codespaces, avoid exposing ports publicly.
 
+## Dashboard and filtering
+
+The interface includes a workspace selector, account controls, live project/ticket progress indicators, and client/project search with status filters. Tickets can also be searched by subject, description or client and filtered by status and priority. These filters operate on records already loaded for the selected workspace; API permissions remain enforced server-side. No database migration is needed for these interface changes.
+
 ## Support tickets
 
 The **Tickets** tab records client support issues with a subject, optional description, priority (low, medium or high) and status (open, in progress or resolved). The Overview dashboard counts open and high-priority tickets. Owners and Editors can create and change tickets; only Owners can delete them. Viewers have read-only access. Ticket operations check workspace membership on the server, and a client cannot be deleted while tickets reference it. These records are demo-only, with no email or external help-desk integrations.
@@ -118,4 +122,4 @@ For PostgreSQL, install and configure a database and set `DATABASE_URL` to a val
 
 This repository contains original source code for the Workbase learning project.
 
-**Status:** Support tickets added as the next local development milestone. Confirm the current GitHub Actions run and test ticket creation, filtering, status changes and permissions in Codespaces.
+**Status:** Dashboard design, progress analytics and search/filter tools are implemented. Confirm the current CI checks and smoke-test them in Codespaces before considering this release verified.
