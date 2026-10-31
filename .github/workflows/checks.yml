@@ -1,3 +1,4 @@
+# API tests and React build on each push.
 name: Workbase checks
 on:
   push:
