@@ -151,3 +151,16 @@ def test_public_demo_is_read_only_and_registration_disabled(client,monkeypatch):
     assert client.post("/api/clients",headers=headers,json={"name":"Forbidden","email":"forbidden@example.org"}).status_code==403
     assert client.post("/api/projects",headers=headers,json={"title":"Forbidden project","client_id":1}).status_code==403
     assert client.post("/api/tickets",headers=headers,json={"subject":"Forbidden issue","client_id":1}).status_code==403
+
+def test_ticket_conversation_stays_in_workspace(client):
+    alice=account(client,"Alice");bob=account(client,"Bob")
+    c=client.post("/api/clients",headers=alice,json={"name":"Studio","email":"studio@example.org"})
+    ticket=client.post("/api/tickets",headers=alice,json={"client_id":c.json()["id"],"subject":"Website edits"})
+    assert ticket.status_code==201
+    path=f"/api/tickets/{ticket.json()['id']}/comments"
+    assert client.post(path,headers=bob,json={"body":"not mine"}).status_code==404
+    created=client.post(path,headers=alice,json={"body":"Sent first draft"})
+    assert created.status_code==201,created.text
+    assert client.get(path,headers=alice).json()[0]["body"]=="Sent first draft"
+    assert client.get(path,headers=bob).status_code==404
+    assert client.delete(f"/api/tickets/{ticket.json()['id']}",headers=alice).status_code==204
