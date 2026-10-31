@@ -4,9 +4,11 @@ from datetime import datetime, timezone
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
 
+# UTC makes timestamps less annoying.
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
+# User logins and hashed passwords.
 class User(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     email: str = Field(index=True, unique=True, max_length=160)
@@ -14,12 +16,14 @@ class User(SQLModel, table=True):
     password_hash: str = Field(max_length=255)
     created_at: datetime = Field(default_factory=utc_now)
 
+# Each account owns a private workspace.
 class Workspace(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=100)
     owner_id: int = Field(foreign_key="user.id", index=True, unique=True)
     created_at: datetime = Field(default_factory=utc_now)
 
+# A business belongs to its workspace.
 class Client(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     workspace_id: int = Field(foreign_key="workspace.id", index=True)
@@ -28,6 +32,7 @@ class Client(SQLModel, table=True):
     status: str = Field(default="lead", index=True)
     created_at: datetime = Field(default_factory=utc_now)
 
+# Projects belong to clients.
 class Project(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     workspace_id: int = Field(foreign_key="workspace.id", index=True)
@@ -36,6 +41,7 @@ class Project(SQLModel, table=True):
     status: str = Field(default="planned", index=True)
     created_at: datetime = Field(default_factory=utc_now)
 
+# Who joined a team and what role they have.
 class WorkspaceMember(SQLModel, table=True):
     """Invitation and membership for a workspace a user does not own."""
     __table_args__ = (UniqueConstraint("workspace_id", "user_id", name="uq_workspace_member"),)
@@ -47,6 +53,7 @@ class WorkspaceMember(SQLModel, table=True):
     accepted: bool = Field(default=False)
     created_at: datetime = Field(default_factory=utc_now)
 
+# Issue priority and current status.
 class SupportTicket(SQLModel, table=True):
     """A customer support issue tied to one workspace and client."""
     id: int | None = Field(default=None, primary_key=True)
@@ -58,6 +65,7 @@ class SupportTicket(SQLModel, table=True):
     status: str = Field(default="open", index=True)
     created_at: datetime = Field(default_factory=utc_now)
 
+# Notes stay attached to the right ticket.
 class TicketComment(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     workspace_id: int = Field(foreign_key="workspace.id", index=True)
