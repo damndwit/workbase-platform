@@ -1,32 +1,27 @@
 # Workbase
 
-I wanted a simple place to keep track of website projects, marketing clients, and random support requests without juggling five different tools. So I started building Workbase.
+I wanted one place to deal with freelance website stuff, marketing clients, and support tickets. Keeping everything in random notes and chats was getting old, so I made Workbase.
 
-It's a full-stack ticketing and client management project that I use to practice building a real web app, not just a static website.
+It's a personal full-stack project. I started with a basic dashboard, got the frontend talking to a Python API, and kept adding things I would actually want in a client portal.
 
-**Live site:** https://workbase-demo.onrender.com/
+**[Live site](https://workbase-demo.onrender.com/)** · **[My GitHub](https://github.com/damndwit)**
 
-### What I built
+## What I worked on
 
-- Client records and project tracking
-- Support tickets, priorities, statuses, and conversation notes
-- Team workspaces, invites, and different access levels
-- Login, registration, and account-specific data
-- Dashboard stats and quick search/filter options
+1. Built the dashboard in **React, TypeScript, HTML, and CSS**. Went for a dark, clean look with a little retro feel.
+2. Added a **FastAPI** backend with REST endpoints for clients, projects, tickets, and notes.
+3. Connected **PostgreSQL** through **SQLModel**, so the records stick around instead of resetting every time.
+4. Added logins, hashed passwords, **JWTs**, team workspaces, and role-based permissions.
+5. Set up ticket statuses, priorities, a conversation history, and optional email invites.
+6. Containerized the app using **Docker**, hosted it on **Render**, and added **GitHub Actions + pytest** checks.
 
-### Stack
+## Stack
 
-**Frontend:** TypeScript, React, HTML, CSS, Vite, Lucide icons  
+**Frontend:** JavaScript / TypeScript, React, HTML5, CSS3, Vite  
 **Backend:** Python, FastAPI, Pydantic, REST APIs  
-**Database:** PostgreSQL, SQLModel, SQL, Neon  
-**Tools:** Git, GitHub, GitHub Actions, Docker, Render, pytest
+**Database:** PostgreSQL, SQL, SQLModel, Neon  
+**Other:** Docker, Git, GitHub Actions, Render, JWT, Argon2, pytest
 
-I went with a dark, minimal UI and a few retro-style details. Mostly just wanted something clean that wouldn't be annoying to use every day.
+I built this to get better at frontend development, backend logic, databases, and how the pieces of a SaaS-style app fit together. I also wanted a project I could actually click around in, not just a screenshot.
 
-### About this project
-
-This started as a personal learning project around full-stack development, database relationships, API design, authentication, and UI styling. I'm continuing to improve it as I learn more.
-
-It's a small independent project, not a commercial help desk. Free hosting has limits, and I'm still working on things like better session management, account recovery, and general production security. Don't use it for sensitive customer information.
-
-**Source code:** Everything for the app is in this repository.
+Guest access uses sample data. My own workspace is separate. Still a personal learning project, so I wouldn't put sensitive client records in it without more security work.
