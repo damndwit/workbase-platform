@@ -10,7 +10,7 @@ from pwdlib import PasswordHash
 from sqlmodel import Session, select
 
 from .database import get_session
-from .models import User, Workspace
+from .models import User, Workspace, WorkspaceMember
 
 # An ephemeral secret is safe for local demos but logins expire after a restart.
 # Configure a stable high-entropy secret before any controlled deployment.
@@ -58,3 +58,24 @@ def owned_workspace(user: User, session: Session) -> Workspace:
     if workspace is None:
         raise HTTPException(403, "No workspace available")
     return workspace
+
+def workspace_access(user: User, session: Session, workspace_id: int | None = None):
+    own = owned_workspace(user, session)
+    target_id = workspace_id if workspace_id is not None else own.id
+    if target_id == own.id:
+        return own, "owner"
+    membership = session.exec(select(WorkspaceMember).where(
+        WorkspaceMember.workspace_id == target_id,
+        WorkspaceMember.user_id == user.id,
+        WorkspaceMember.accepted == True,
+    )).first()
+    if membership is None:
+        raise HTTPException(403, "Workspace access denied")
+    workspace = session.get(Workspace, target_id)
+    if workspace is None:
+        raise HTTPException(404, "Workspace not found")
+    return workspace, membership.role
+
+def require_role(role: str, allowed: tuple[str, ...]):
+    if role not in allowed:
+        raise HTTPException(403, "Insufficient workspace permissions")
