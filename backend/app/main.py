@@ -99,7 +99,7 @@ def me(user:User=Depends(current_user),session:Session=Depends(get_session)):
 @app.get("/api/workspaces",response_model=list[WorkspaceRead])
 def workspaces(user:User=Depends(current_user),session:Session=Depends(get_session)):
     home=owned_workspace(user,session)
-    result=[WorkspaceRead(id=home.id,name=home.name,role="owner")]
+    result=[WorkspaceRead(id=home.id,name=home.name,role="viewer" if PUBLIC_DEMO_MODE and user.email == DEMO_EMAIL else "owner")]
     memberships=session.exec(select(WorkspaceMember).where(WorkspaceMember.user_id==user.id,WorkspaceMember.accepted==True)).all()
     for member in memberships:
         ws=session.get(Workspace,member.workspace_id)
