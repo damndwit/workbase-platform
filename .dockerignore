@@ -1,0 +1,12 @@
+.git
+.github
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+**/*.db
+**/*.sqlite*
+.vscode
