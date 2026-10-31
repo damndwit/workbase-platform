@@ -1,3 +1,4 @@
+// React starts here and loads the main app.
 import React from "react";
 import {createRoot} from "react-dom/client";
 import App from "./App";
