@@ -32,7 +32,7 @@ export default function App(){
    }catch(e){setError((e as Error).message)}finally{setLoading(false)}
  }
  if(token&&!account)return <main style={{padding:40}}>Loading your workspace…</main>;
- if(account&&activeWorkspace)return <Dashboard key={account.id+"-"+activeWorkspace} account={account} workspaces={workspaces} activeWorkspace={activeWorkspace} onWorkspace={setActiveWorkspace} onLogout={logout}/>;
+ if(account&&activeWorkspace)return <Dashboard key={account.id+"-"+activeWorkspace} account={account} workspaces={workspaces} activeWorkspace={activeWorkspace} onWorkspace={setActiveWorkspace} onRefreshWorkspaces={async()=>{const all=await api<Workspace[]>("/workspaces");setWorkspaces(all)}} onLogout={logout}/>;
  return <div className="authScreen"><div className="authCard"><div className="authLogo">◈ workbase.</div>
  <h1>{formMode==="register"?"Create your workspace":"Welcome back"}</h1>
  <p>{formMode==="register"?"Set up your account and start managing clients and projects.":"Sign in to your Workbase dashboard."}</p>
@@ -58,7 +58,7 @@ async function api<T>(path:string, options?:RequestInit):Promise<T>{
  if(!response.ok) throw new Error("Request failed ("+response.status+"). Check your inputs and backend.");
  return response.status===204 ? undefined as T : await response.json() as T;
 }
-function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onLogout}:{account:Account;workspaces:Workspace[];activeWorkspace:number;onWorkspace:(id:number)=>void;onLogout:()=>void}){
+function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onRefreshWorkspaces,onLogout}:{account:Account;workspaces:Workspace[];activeWorkspace:number;onWorkspace:(id:number)=>void;onRefreshWorkspaces:()=>Promise<void>;onLogout:()=>void}){
  workspaceId=activeWorkspace;
  const current=workspaces.find(w=>w.id===activeWorkspace);
  const canEdit=current?.role==="owner"||current?.role==="editor";
@@ -92,7 +92,7 @@ function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onLogout}:{ac
  <div className="workspaceSwitcher"><label>Active workspace <select value={activeWorkspace} onChange={e=>onWorkspace(Number(e.target.value))}>{workspaces.map(w=><option value={w.id} key={w.id}>{w.name} ({w.role})</option>)}</select></label></div>
  <main><div className="heading"><div className="eyebrow">WORKBASE / DASHBOARD</div><h1>{page==="overview"?"Good to see you.":page==="clients"?"Clients":"Projects"}</h1><p>{page==="overview"?"Here's what's happening in your workspace.":page==="clients"?"Keep track of your client relationships.":page==="projects"?"Manage your projects and progress.":"People and permissions in your workspace."}</p></div>
  {error&&<div role="alert" className="alert">{error} <button onClick={()=>void refresh()}>Retry</button></div>}
- {page==="team"&&<Team key={activeWorkspace} workspace={current} onUpdated={async()=>{const all=await api<Workspace[]>("/workspaces");if(all.length===1)onWorkspace(all[0].id);}}/>}
+ {page==="team"&&<Team key={activeWorkspace} workspace={current} onUpdated={onRefreshWorkspaces}/>}
  {page==="overview"&&<><div className="metrics">
  {([["Total clients",summary.clients],["Active clients",summary.active_clients],["Projects",summary.projects],["Completed",summary.completed_projects]] as [string,number][]).map(([name,count])=><div className="metric" key={name}><p>{name}</p><strong>{count}</strong><small>Workspace overview</small></div>)}</div>
  <div className="panel"><div className="panelHead"><h2>Recent projects</h2><button className="linkBtn" onClick={()=>setPage("projects")}>View all →</button></div>
