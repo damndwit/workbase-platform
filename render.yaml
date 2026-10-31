@@ -1,3 +1,4 @@
+# Hosting config. Render settings override this on the live service.
 services:
   - type: web
     name: workbase-demo
