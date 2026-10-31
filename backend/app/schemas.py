@@ -68,6 +68,8 @@ class DashboardSummary(BaseModel):
     active_clients: int
     projects: int
     completed_projects: int
+    open_tickets: int = 0
+    high_priority_tickets: int = 0
 
 TeamRole = Literal["editor", "viewer"]
 WorkspaceRole = Literal["owner", "editor", "viewer"]
@@ -93,3 +95,28 @@ class MemberRead(BaseModel):
     display_name: str
     role: WorkspaceRole
     accepted: bool
+
+TicketPriority = Literal["low", "medium", "high"]
+TicketStatus = Literal["open", "in_progress", "resolved"]
+
+class TicketCreate(BaseModel):
+    client_id: int = Field(gt=0)
+    subject: str = Field(min_length=3, max_length=140)
+    description: str = Field(default="", max_length=2000)
+    priority: TicketPriority = "medium"
+
+class TicketUpdate(BaseModel):
+    subject: str | None = Field(default=None, min_length=3, max_length=140)
+    description: str | None = Field(default=None, max_length=2000)
+    priority: TicketPriority | None = None
+    status: TicketStatus | None = None
+
+class TicketRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    client_id: int
+    subject: str
+    description: str
+    priority: TicketPriority
+    status: TicketStatus
+    created_at: datetime
