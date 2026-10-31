@@ -3,7 +3,7 @@
 
 .ticketDescription{display:block;color:#8696a8;margin-top:5px;max-width:350px;overflow-wrap:anywhere}.ticketHigh{color:#b5484f;background:#ffe8e9}.panelHead label{color:#708196;font-size:12px}.panelHead select{margin-left:8px;padding:7px;border:1px solid #dce4ef;border-radius:8px;background:white}.formPanel p{color:#7b8b9e}
 
-/* Dashboard refinement: layout, navigation and filter controls */
+/* Layout, search and filters. Just keeping things tidy. */
 :root{--ink:#203049;--muted:#8291a6;--blue:#4769d8;--line:#e6ebf3}
 .appSidebar{width:246px;flex-basis:246px;background:#142238}
 .appSidebar .logo{display:flex;align-items:center;gap:11px;padding:3px 12px 36px;color:#f8fbff;font-size:23px;letter-spacing:-1.1px}
@@ -70,7 +70,7 @@
 @media(max-width:680px){.appSidebar{width:100%;min-height:0;padding:13px}.appSidebar .logo{padding:0 5px 12px;font-size:20px}.appSidebar nav{flex-wrap:wrap}.appSidebar nav button{width:auto;flex:1 1 auto;padding:10px 12px;font-size:12px}.appSidebar nav button small{display:none}.workspaceSwitcher label{flex-direction:column;align-items:flex-start;gap:6px}.workspaceSwitcher select{min-width:0;width:100%}.workspaceSwitcher{align-items:flex-end}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.insightPanel{padding:19px}.filterBar{padding:12px}.filterBar select{flex:1}.searchField{max-width:none;flex-basis:100%}}
 
 
-/* Workbase visual theme — Midnight Studio
+/* Dark UI with a little retro vibe.
    Clean, high-contrast interfaces with restrained vintage-computing accents.
    Original CSS; no paid fonts, libraries, images or external assets. */
 :root{
@@ -323,7 +323,7 @@ tr:hover td{background:#ffffff06}
   .metric:hover{transform:none}
 }
 
-/* Ticket notes: keeping this bit simple on purpose. */
+/* Notes panel, nothing fancy. */
 .ticketSubject{border:0;background:transparent;color:var(--heading);font-weight:700;padding:0;text-align:left;text-decoration:underline;text-decoration-color:var(--amber-dark);text-underline-offset:4px}
 .ticketSubject:hover{color:var(--amber)}
 .ticketNotes{margin-top:18px}.ticketNotes .note{padding:15px 0;border-bottom:1px solid var(--stroke-soft)}
