@@ -1,1 +1,1 @@
-"""Workbase backend."""
+"""Workbase backend package."""
