@@ -6,6 +6,7 @@ type Workspace={id:number;name:string;role:"owner"|"editor"|"viewer"};
 type Invitation={id:number;workspace_id:number;workspace_name:string;role:string};
 type Ticket={id:number;client_id:number;subject:string;description:string;priority:"low"|"medium"|"high";status:"open"|"in_progress"|"resolved"};
 type Member={id:number;email:string;display_name:string;role:string;accepted:boolean};
+// Login, signup and guest access.
 export default function App(){
  const [token,setToken]=useState(()=>sessionStorage.getItem("workbase_token")||"");
  const [account,setAccount]=useState<Account|null>(null);
@@ -21,6 +22,7 @@ export default function App(){
  const [loading,setLoading]=useState(false);
  const [demoAvailable,setDemoAvailable]=useState(false);
  useEffect(()=>{void fetch("/api/health").then(r=>r.json()).then(d=>setDemoAvailable(d.demo_available===true)).catch(()=>{})},[]);
+ // Guest gets a read-only token.
  async function openDemo(){setLoading(true);setError("");try{const response=await api<{access_token:string}>("/auth/demo",{method:"POST"});activeToken=response.access_token;sessionStorage.setItem("workbase_token",response.access_token);setToken(response.access_token)}catch(e){setError((e as Error).message)}finally{setLoading(false)}}
  activeToken=token;
  useEffect(()=>{
@@ -62,6 +64,7 @@ type Summary = {clients:number;active_clients:number;projects:number;completed_p
 type Page = "overview"|"clients"|"projects"|"team"|"tickets";
 let activeToken = "";
 let workspaceId = 0;
+// One fetch helper for the whole app.
 async function api<T>(path:string, options?:RequestInit):Promise<T>{
  let response:Response;
  try {
@@ -82,6 +85,7 @@ async function api<T>(path:string, options?:RequestInit):Promise<T>{
  }
  return response.status===204 ? undefined as T : await response.json() as T;
 }
+// Sidebar, stats and the workspace pages.
 function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onRefreshWorkspaces,onLogout}:{account:Account;workspaces:Workspace[];activeWorkspace:number;onWorkspace:(id:number)=>void;onRefreshWorkspaces:()=>Promise<void>;onLogout:()=>void}){
  workspaceId=activeWorkspace;
  const current=workspaces.find(w=>w.id===activeWorkspace);
@@ -102,6 +106,7 @@ function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onRefreshWork
  const [projectFilter,setProjectFilter]=useState("all");
  const visibleClients=clients.filter(c=>(clientFilter==="all"||c.status===clientFilter)&&[c.name,c.email].some(v=>v.toLowerCase().includes(search.toLowerCase())));
  const visibleProjects=projects.filter(p=>(projectFilter==="all"||p.status===projectFilter)&&[p.title,clients.find(c=>c.id===p.client_id)?.name||""].some(v=>v.toLowerCase().includes(search.toLowerCase())));
+ // Refresh the lists after an edit.
  async function refresh(){
   try{const [c,p,s,t]=await Promise.all([api<Client[]>("/clients"),api<Project[]>("/projects"),api<Summary>("/summary"),api<Ticket[]>("/tickets")]);
    setClients(c);setProjects(p);setSummary(s);setTickets(t);setError("");
@@ -141,6 +146,7 @@ function Dashboard({account,workspaces,activeWorkspace,onWorkspace,onRefreshWork
  <p className="notice">{account.email==="demo@workbase.example"?"Public portfolio demo · Fictional records · Read-only access":"Your workspace · Client and ticket management"}</p></main></section></div>;
 }
 
+// Teammates, invites, roles.
 function Team({workspace,onUpdated}:{workspace:Workspace|undefined;onUpdated:()=>Promise<void>}){
  const [members,setMembers]=useState<Member[]>([]);
  const [invitations,setInvitations]=useState<Invitation[]>([]);
@@ -157,6 +163,7 @@ function Team({workspace,onUpdated}:{workspace:Workspace|undefined;onUpdated:()=
  <div className="panel formPanel"><h2>Your pending invitations</h2>{invitations.length===0?<p>No pending invitations.</p>:invitations.map(i=><div className="invitation" key={i.id}><span>{i.workspace_name} · {i.role}</span><button className="primary" onClick={()=>void run(()=>api("/invitations/"+i.id+"/accept",{method:"POST"}))}>Accept</button></div>)}</div></>;
 }
 
+// Ticket filters, statuses and notes.
 function Tickets({clients,tickets,canEdit,canDelete,submit,busy}:{clients:Client[];tickets:Ticket[];canEdit:boolean;canDelete:boolean;submit:(fn:()=>Promise<unknown>)=>Promise<void>;busy:boolean}){
  const [subject,setSubject]=useState("");
  const [description,setDescription]=useState("");
@@ -169,12 +176,14 @@ function Tickets({clients,tickets,canEdit,canDelete,submit,busy}:{clients:Client
  const [notes,setNotes]=useState<{id:number;author:string;body:string;created_at:string}[]>([]);
  const [noteText,setNoteText]=useState("");
  const [noteError,setNoteError]=useState("");
+ // Load the selected ticket's notes.
  async function openTicket(id:number){
    if(selectedTicket===id){setSelectedTicket(null);return;}
    setNoteError("");
    try{setNotes(await api("/tickets/"+id+"/comments"));setSelectedTicket(id)}
    catch(e){setNoteError((e as Error).message)}
  }
+ // Save a new note to the backend.
  async function saveNote(){
    if(selectedTicket===null||!noteText.trim())return;
    setNoteError("");
