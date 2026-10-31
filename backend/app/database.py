@@ -3,6 +3,7 @@ import os
 from collections.abc import Generator
 from sqlmodel import Session, SQLModel, create_engine
 
+# SQLite for local runs, Postgres for the live app.
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
 provided_url = os.getenv("DATABASE_URL", "").strip()
 if ENVIRONMENT == "production" and not provided_url:
@@ -17,6 +18,7 @@ elif DATABASE_URL.startswith("postgresql://"):
 if ENVIRONMENT == "production" and not DATABASE_URL.startswith("postgresql+psycopg://"):
     raise RuntimeError("Production requires PostgreSQL, not a local SQLite database.")
 
+# Keep DB connections alive and check before reuse.
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite:") else {},
@@ -24,10 +26,12 @@ engine = create_engine(
     pool_recycle=1200,
 )
 
+# Create tables when starting a fresh DB.
 def create_tables() -> None:
     from . import models  # noqa: F401
     SQLModel.metadata.create_all(engine)
 
+# Give each request its own DB session.
 def get_session() -> Generator[Session, None, None]:
     with Session(engine) as session:
         yield session
