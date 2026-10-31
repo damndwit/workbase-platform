@@ -164,3 +164,28 @@ def test_ticket_conversation_stays_in_workspace(client):
     assert client.get(path,headers=alice).json()[0]["body"]=="Sent first draft"
     assert client.get(path,headers=bob).status_code==404
     assert client.delete(f"/api/tickets/{ticket.json()['id']}",headers=alice).status_code==204
+
+def test_guest_preview_does_not_change_regular_accounts(client, monkeypatch):
+    from app import main, security
+    from app.database import get_session
+    from app.models import User, Workspace
+    from sqlmodel import Session
+    monkeypatch.setenv("WORKBASE_GUEST_PREVIEW", "1")
+    monkeypatch.setattr(main, "ENVIRONMENT", "production")
+    monkeypatch.setenv("WORKBASE_SIGNUP_CODE", "this-is-only-a-test-signup-code")
+    generator = app.dependency_overrides[get_session]()
+    with next(generator) as session:
+        guest = User(email=security.DEMO_EMAIL, display_name="Guest", password_hash=security.hash_password("some-random-password"))
+        session.add(guest)
+        session.flush()
+        session.add(Workspace(name="Sample", owner_id=guest.id))
+        session.commit()
+    token = client.post("/api/auth/demo")
+    assert token.status_code == 200, token.text
+    headers = {"Authorization": "Bearer " + token.json()["access_token"]}
+    result = client.get("/api/workspaces", headers=headers)
+    assert result.status_code == 200 and result.json()[0]["role"] == "viewer"
+    assert client.post("/api/clients", headers=headers, json={"name": "Private", "email": "private@example.org"}).status_code == 403
+    assert client.post("/api/auth/register", json={"display_name": "User", "workspace_name": "Home", "email": "user@example.org", "password": "a-long-test-password", "signup_code": "invalid"}).status_code == 403
+    result = client.post("/api/auth/register", json={"display_name": "User", "workspace_name": "Home", "email": "user@example.org", "password": "a-long-test-password", "signup_code": "this-is-only-a-test-signup-code"})
+    assert result.status_code == 201, result.text
