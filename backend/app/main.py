@@ -54,7 +54,7 @@ origins = os.getenv("FRONTEND_ORIGINS","http://localhost:5173").split(",")
 app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=["GET","POST","PATCH","DELETE"],allow_headers=["Content-Type","Authorization","X-Workspace-Id"])
 
 @app.get("/api/health")
-def health(): return {"status":"ok"}
+def health(): return {"status":"ok","demo_available":ENVIRONMENT == "production" and PUBLIC_DEMO_MODE}
 
 @app.post("/api/auth/register",response_model=TokenResponse,status_code=201)
 def register(body:RegisterRequest,session:Session=Depends(get_session)):
