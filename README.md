@@ -8,7 +8,16 @@ The current version supports user registration, login, personally owned and shar
 
 ## Run in GitHub Codespaces
 
-Create a Codespace for this repository. Open **two terminals** from the repository root.
+Create a Codespace for this repository. From its terminal, run the one-command startup:
+
+```bash
+cd /workspaces/workbase-platform
+bash scripts/dev.sh
+```
+
+This checks that ports 8000 and 5173 are free, starts FastAPI, waits for its health check, then starts Vite. Keep that terminal running, and open the forwarded **5173** port. Press **Ctrl+C** to stop it. If you have older terminals running the backend/frontend, stop those first to avoid port conflicts.
+
+Or run the servers manually in **two terminals** from the repository root:
 
 **Terminal 1: Backend**
 ```bash
