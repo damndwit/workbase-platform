@@ -1,6 +1,7 @@
 """Database tables for individual user-owned Workbase demo workspaces."""
 from datetime import datetime, timezone
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 def utc_now() -> datetime:
@@ -33,4 +34,15 @@ class Project(SQLModel, table=True):
     title: str = Field(index=True, max_length=120)
     client_id: int = Field(foreign_key="client.id", index=True)
     status: str = Field(default="planned", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+class WorkspaceMember(SQLModel, table=True):
+    """Invitation and membership for a workspace a user does not own."""
+    __table_args__ = (UniqueConstraint("workspace_id", "user_id", name="uq_workspace_member"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    workspace_id: int = Field(foreign_key="workspace.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    role: str = Field(default="viewer")  # editor or viewer
+    accepted: bool = Field(default=False)
     created_at: datetime = Field(default_factory=utc_now)
