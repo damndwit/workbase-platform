@@ -122,7 +122,7 @@ def accept_invitation(invitation_id:int,user:User=Depends(current_user),session:
     member=session.get(WorkspaceMember,invitation_id)
     if not member or member.user_id!=user.id or member.accepted:
         raise HTTPException(404,"Invitation not found")
-    if PUBLIC_DEMO_MODE and user.email == DEMO_EMAIL:
+    if (PUBLIC_DEMO_MODE or os.getenv("WORKBASE_GUEST_PREVIEW","0")=="1") and user.email == DEMO_EMAIL:
         raise HTTPException(403,"Read-only account")
     member.accepted=True
     session.add(member);session.commit()
