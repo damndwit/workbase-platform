@@ -1,13 +1,16 @@
 """Workbase protected API for individual demo workspaces."""
 from contextlib import asynccontextmanager
+from pathlib import Path
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 import os
 from fastapi import Depends, FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
-from .database import create_tables, get_session
+from .database import create_tables, get_session, engine
 from .models import Client, Project, User, Workspace, WorkspaceMember, SupportTicket
-from .security import current_user, hash_password, verify_password, token_for_user, owned_workspace, workspace_access, require_role
+from .security import current_user, hash_password, verify_password, token_for_user, owned_workspace, workspace_access, require_role, ENVIRONMENT, PUBLIC_DEMO_MODE, DEMO_EMAIL
 from .schemas import (
     RegisterRequest, LoginRequest, TokenResponse, AccountRead,
     ClientCreate, ClientRead, ClientUpdate, ProjectCreate, ProjectRead,
@@ -17,6 +20,33 @@ from .schemas import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_tables()
+    if ENVIRONMENT == "production" and PUBLIC_DEMO_MODE:
+        with Session(engine) as session:
+            demo = session.exec(select(User).where(User.email == DEMO_EMAIL)).first()
+            if demo is None:
+                import secrets
+                demo = User(email=DEMO_EMAIL, display_name="Demo Visitor", password_hash=hash_password(secrets.token_urlsafe(45)))
+                session.add(demo)
+                session.flush()
+                ws = Workspace(name="Studio North · Sample", owner_id=demo.id)
+                session.add(ws)
+                session.flush()
+                sample_clients = [
+                    Client(name="Cedar & Co.", email="hello@example.org", status="active", workspace_id=ws.id),
+                    Client(name="Northline Studio", email="team@example.net", status="active", workspace_id=ws.id),
+                    Client(name="Atlas Design", email="contact@example.com", status="lead", workspace_id=ws.id),
+                ]
+                session.add_all(sample_clients)
+                session.flush()
+                session.add_all([
+                    Project(title="Website redesign", client_id=sample_clients[0].id, workspace_id=ws.id, status="in_progress"),
+                    Project(title="Brand guidelines", client_id=sample_clients[1].id, workspace_id=ws.id, status="done"),
+                    Project(title="Client onboarding", client_id=sample_clients[2].id, workspace_id=ws.id, status="planned"),
+                    SupportTicket(subject="Update landing page copy", description="Example request for the portfolio demo.", priority="medium", status="open", client_id=sample_clients[0].id, workspace_id=ws.id),
+                    SupportTicket(subject="Fix contact form", description="Sample support ticket.", priority="high", status="in_progress", client_id=sample_clients[1].id, workspace_id=ws.id),
+                    SupportTicket(subject="Review project handoff", description="Sample resolved issue.", priority="low", status="resolved", client_id=sample_clients[2].id, workspace_id=ws.id),
+                ])
+                session.commit()
     yield
 
 app = FastAPI(title="Workbase API", version="0.4.0", lifespan=lifespan)
@@ -28,6 +58,8 @@ def health(): return {"status":"ok"}
 
 @app.post("/api/auth/register",response_model=TokenResponse,status_code=201)
 def register(body:RegisterRequest,session:Session=Depends(get_session)):
+    if ENVIRONMENT == "production":
+        raise HTTPException(403, "Registration is disabled on this public portfolio demo")
     email=str(body.email).lower()
     if session.exec(select(User).where(User.email==email)).first():
         raise HTTPException(409,"Account already exists")
@@ -41,6 +73,14 @@ def register(body:RegisterRequest,session:Session=Depends(get_session)):
         session.rollback()
         raise HTTPException(409,"Account already exists") from None
     session.refresh(user)
+    return TokenResponse(access_token=token_for_user(user))
+
+@app.post("/api/auth/demo",response_model=TokenResponse)
+def demo_login(session:Session=Depends(get_session)):
+    if ENVIRONMENT != "production" or not PUBLIC_DEMO_MODE:
+        raise HTTPException(404,"Not found")
+    user=session.exec(select(User).where(User.email==DEMO_EMAIL)).first()
+    if user is None: raise HTTPException(503,"Demo not initialized")
     return TokenResponse(access_token=token_for_user(user))
 
 @app.post("/api/auth/login",response_model=TokenResponse)
@@ -217,3 +257,23 @@ def delete_ticket(ticket_id:int,user:User=Depends(current_user),session:Session=
     require_role(role,("owner",))
     item=find_ticket(ticket_id,ws.id,session)
     session.delete(item);session.commit()
+
+# Same-origin static hosting: React built by Vite and served with the FastAPI API.
+DIST_DIR = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if DIST_DIR.is_dir():
+    ASSETS_DIR = DIST_DIR / "assets"
+    if ASSETS_DIR.is_dir():
+        app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    def frontend_index():
+        return FileResponse(DIST_DIR / "index.html")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def frontend_route(path: str):
+        if path.startswith(("api/", "docs", "redoc", "openapi.json")):
+            raise HTTPException(404, "Not found")
+        asset = (DIST_DIR / path).resolve()
+        if asset.is_relative_to(DIST_DIR.resolve()) and asset.is_file():
+            return FileResponse(asset)
+        return FileResponse(DIST_DIR / "index.html")
