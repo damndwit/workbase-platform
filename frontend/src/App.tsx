@@ -41,19 +41,19 @@ export default function App(){
  if(token&&(!account||!activeWorkspace))return <main style={{padding:40}}>Loading your workspace…</main>;
  if(account&&activeWorkspace)return <Dashboard key={account.id+"-"+activeWorkspace} account={account} workspaces={workspaces} activeWorkspace={activeWorkspace} onWorkspace={setActiveWorkspace} onRefreshWorkspaces={async()=>{const all=await api<Workspace[]>("/workspaces");setWorkspaces(all)}} onLogout={logout}/>;
  return <div className="authScreen"><div className="authCard"><div className="authLogo">◈ workbase.</div>
- <h1>{formMode==="register"&&!demoAvailable?"Create your workspace":"Welcome back"}</h1>
- <p>{demoAvailable?"Explore a sample workspace with fictional client and project data.":formMode==="register"?"Set up your account and start managing clients and projects.":"Sign in to your Workbase dashboard."}</p>
+ <h1>{formMode==="register"?"Create your workspace":"Welcome back"}</h1>
+ <p>{formMode==="register"?"Create an account with your invitation code.":"Sign in to manage your projects and tickets."}</p>
  {error&&<div className="alert" role="alert">{error}</div>}
- {!demoAvailable&&<form onSubmit={authenticate}>
- {formMode==="register"&&!demoAvailable&&<><label>Your name<input minLength={2} maxLength={100} required value={name} onChange={e=>setName(e.target.value)}/></label>
+ <form onSubmit={authenticate}>
+ {formMode==="register"&&<><label>Your name<input minLength={2} maxLength={100} required value={name} onChange={e=>setName(e.target.value)}/></label>
  <label>Workspace name<input minLength={2} maxLength={100} required value={workspace} onChange={e=>setWorkspace(e.target.value)}/></label></>}
  <label>Email<input required type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
  {formMode==="register"&&<label>Invite code<input required type="password" value={signupCode} onChange={e=>setSignupCode(e.target.value)} placeholder="Your registration code"/></label>}
  <label>Password<input required type="password" minLength={formMode==="register"?10:1} value={password} onChange={e=>setPassword(e.target.value)}/></label>
- <button type="submit" className="primary" disabled={loading}>{loading?"Working…":formMode==="register"?"Create account":"Sign in"}</button></form>}
- {demoAvailable&&<button className="demoLaunch" disabled={loading} onClick={()=>void openDemo()}>Explore read-only demo →</button>}
- {!demoAvailable&&<button className="textSwitch" onClick={()=>{setError("");setFormMode(formMode==="register"?"login":"register")}}>{formMode==="register"?"Already have an account? Sign in":"Need an account? Register"}</button>}
- <small>{demoAvailable?"Fictional records only · Read-only demo":"Private client workspace · Keep login details secure."}</small></div></div>;
+ <button type="submit" className="primary" disabled={loading}>{loading?"Working…":formMode==="register"?"Create account":"Sign in"}</button></form>
+ {demoAvailable&&<button className="demoLaunch" disabled={loading} onClick={()=>void openDemo()}>Explore Workbase as a guest →</button>}
+ <button className="textSwitch" onClick={()=>{setError("");setFormMode(formMode==="register"?"login":"register")}}>{formMode==="register"?"Already have an account? Sign in":"Need an account? Register"}</button>
+ <small>{demoAvailable?"Guest access is read-only · Sign in for your own workspace":"Private client workspace · Keep login details secure."}</small></div></div>;
 }
 
 type Client = {id:number; name:string; email:string; status:string};
@@ -153,7 +153,7 @@ function Team({workspace,onUpdated}:{workspace:Workspace|undefined;onUpdated:()=
  const run=async(fn:()=>Promise<unknown>)=>{setError("");setMessage("");try{await fn();await refresh();await onUpdated()}catch(e){setError((e as Error).message)}};
  return <><div className="panel formPanel"><h2>Team members</h2><p>Members can access this workspace after accepting an invitation.</p>{error&&<div className="alert">{error}</div>}{message&&<p>{message}</p>}
  <div className="scroll"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Access</th></tr></thead><tbody>{members.map(m=><tr key={m.id}><td>{m.display_name}</td><td>{m.email}</td><td>{m.role}</td><td>{m.accepted?"Active":"Invited"}</td></tr>)}</tbody></table></div></div>
- {workspace?.role==="owner"&&<div className="panel formPanel"><h2>Invite a member</h2><p>The person must already have a Workbase account. Invitations appear inside their Team page.</p><form onSubmit={e=>{e.preventDefault();void run(async()=>{await api("/workspaces/"+workspace.id+"/invite",{method:"POST",body:JSON.stringify({email,role})});setEmail("");setMessage("Invitation created.")})}}><label>Email<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Role<select value={role} onChange={e=>setRole(e.target.value)}><option value="viewer">Viewer</option><option value="editor">Editor</option></select></label><button className="primary">Invite</button></form></div>}
+ {workspace?.role==="owner"&&<div className="panel formPanel"><h2>Invite a member</h2><p>The person must already have a Workbase account. Invitations appear inside their Team page.</p><form onSubmit={e=>{e.preventDefault();void run(async()=>{const result=await api<{email_status:string}>("/workspaces/"+workspace.id+"/invite",{method:"POST",body:JSON.stringify({email,role})});setEmail("");setMessage(result.email_status==="submitted"?"Invitation saved and email submitted.":"Invitation saved in Workbase. Email notifications are not enabled yet.")})}}><label>Email<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Role<select value={role} onChange={e=>setRole(e.target.value)}><option value="viewer">Viewer</option><option value="editor">Editor</option></select></label><button className="primary">Invite</button></form></div>}
  <div className="panel formPanel"><h2>Your pending invitations</h2>{invitations.length===0?<p>No pending invitations.</p>:invitations.map(i=><div className="invitation" key={i.id}><span>{i.workspace_name} · {i.role}</span><button className="primary" onClick={()=>void run(()=>api("/invitations/"+i.id+"/accept",{method:"POST"}))}>Accept</button></div>)}</div></>;
 }
 
