@@ -1,4 +1,4 @@
-"""Development authentication. Do not expose without production security hardening."""
+"""Login tokens and workspace permissions."""
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -14,6 +14,7 @@ from .models import User, Workspace, WorkspaceMember
 
 # An ephemeral secret is safe for local demos but logins expire after a restart.
 # Configure a stable high-entropy secret before any controlled deployment.
+# Live vs local config.
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
 PUBLIC_DEMO_MODE = os.getenv("PUBLIC_DEMO_MODE", "0") == "1"
 DEMO_EMAIL = "demo@workbase.example"
@@ -26,12 +27,14 @@ ALGORITHM = "HS256"
 password_hash = PasswordHash.recommended()
 bearer = HTTPBearer(auto_error=False)
 
+# Never store raw passwords.
 def hash_password(password: str) -> str:
     return password_hash.hash(password)
 
 def verify_password(plain: str, hashed: str) -> bool:
     return password_hash.verify(plain, hashed)
 
+# JWT expires after 12 hours.
 def token_for_user(user: User) -> str:
     now = datetime.now(timezone.utc)
     return jwt.encode({
@@ -39,6 +42,7 @@ def token_for_user(user: User) -> str:
         "iat": now, "exp": now + timedelta(hours=12),
     }, SECRET, algorithm=ALGORITHM)
 
+# Protected routes check the token.
 def current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     session: Session = Depends(get_session),
@@ -65,6 +69,7 @@ def owned_workspace(user: User, session: Session) -> Workspace:
         raise HTTPException(403, "No workspace available")
     return workspace
 
+# Keep one team's data away from another.
 def workspace_access(user: User, session: Session, workspace_id: int | None = None):
     own = owned_workspace(user, session)
     target_id = workspace_id if workspace_id is not None else own.id
@@ -86,6 +91,7 @@ def workspace_access(user: User, session: Session, workspace_id: int | None = No
         raise HTTPException(404, "Workspace not found")
     return workspace, membership.role
 
+# API permissions matter more than disabled buttons.
 def require_role(role: str, allowed: tuple[str, ...]):
     if role not in allowed:
         raise HTTPException(403, "Insufficient workspace permissions")
