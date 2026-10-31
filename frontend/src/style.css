@@ -322,3 +322,11 @@ tr:hover td{background:#ffffff06}
   .metric,.appSidebar nav button,.progressFill{transition:none}
   .metric:hover{transform:none}
 }
+
+/* Ticket notes: keeping this bit simple on purpose. */
+.ticketSubject{border:0;background:transparent;color:var(--heading);font-weight:700;padding:0;text-align:left;text-decoration:underline;text-decoration-color:var(--amber-dark);text-underline-offset:4px}
+.ticketSubject:hover{color:var(--amber)}
+.ticketNotes{margin-top:18px}.ticketNotes .note{padding:15px 0;border-bottom:1px solid var(--stroke-soft)}
+.ticketNotes .note p{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--body)}
+.ticketNotes .note small{color:var(--quiet);margin-left:12px}
+.ticketNotes form label{flex-basis:100%}.ticketNotes textarea{resize:vertical;min-height:85px;width:100%;background:#12161d;border:1px solid #3a4351;border-radius:9px;padding:12px;color:var(--heading)}
