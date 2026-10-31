@@ -6,12 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 from .database import create_tables, get_session
-from .models import Client, Project, User, Workspace, WorkspaceMember
+from .models import Client, Project, User, Workspace, WorkspaceMember, SupportTicket
 from .security import current_user, hash_password, verify_password, token_for_user, owned_workspace, workspace_access, require_role
 from .schemas import (
     RegisterRequest, LoginRequest, TokenResponse, AccountRead,
     ClientCreate, ClientRead, ClientUpdate, ProjectCreate, ProjectRead,
-    ProjectUpdate, DashboardSummary, WorkspaceRead, InvitationCreate, InvitationRead, MemberRead,
+    ProjectUpdate, DashboardSummary, WorkspaceRead, InvitationCreate, InvitationRead, MemberRead, TicketCreate, TicketRead, TicketUpdate,
 )
 
 @asynccontextmanager
@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
     create_tables()
     yield
 
-app = FastAPI(title="Workbase API", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="Workbase API", version="0.4.0", lifespan=lifespan)
 origins = os.getenv("FRONTEND_ORIGINS","http://localhost:5173").split(",")
 app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=["GET","POST","PATCH","DELETE"],allow_headers=["Content-Type","Authorization","X-Workspace-Id"])
 
@@ -136,6 +136,8 @@ def edit_client(client_id:int,body:ClientUpdate,user:User=Depends(current_user),
 @app.delete("/api/clients/{client_id}",status_code=204)
 def delete_client(client_id:int,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
     ws,role=workspace_access(user,session,x_workspace_id);require_role(role,['owner']);item=find_client(client_id,ws.id,session)
+    if session.exec(select(SupportTicket).where(SupportTicket.client_id==client_id,SupportTicket.workspace_id==ws.id)).first():
+        raise HTTPException(409,"Delete the client’s support tickets first")
     if session.exec(select(Project).where(Project.client_id==client_id,Project.workspace_id==ws.id)).first():
         raise HTTPException(409,"Delete the client's projects first")
     session.delete(item);session.commit()
@@ -172,5 +174,46 @@ def summary(user:User=Depends(current_user),session:Session=Depends(get_session)
     ws,role=workspace_access(user,session,x_workspace_id)
     clients=session.exec(select(Client).where(Client.workspace_id==ws.id)).all()
     projects=session.exec(select(Project).where(Project.workspace_id==ws.id)).all()
+    tickets=session.exec(select(SupportTicket).where(SupportTicket.workspace_id==ws.id)).all()
     return DashboardSummary(clients=len(clients),active_clients=sum(c.status=="active" for c in clients),
-            projects=len(projects),completed_projects=sum(p.status=="done" for p in projects))
+            projects=len(projects),completed_projects=sum(p.status=="done" for p in projects),
+            open_tickets=sum(t.status!="resolved" for t in tickets),
+            high_priority_tickets=sum(t.priority=="high" and t.status!="resolved" for t in tickets))
+
+@app.get("/api/tickets",response_model=list[TicketRead])
+def list_tickets(user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,_=workspace_access(user,session,x_workspace_id)
+    return session.exec(select(SupportTicket).where(SupportTicket.workspace_id==ws.id).order_by(SupportTicket.id.desc())).all()
+
+@app.post("/api/tickets",response_model=TicketRead,status_code=201)
+def create_ticket(body:TicketCreate,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id)
+    require_role(role,("owner","editor"))
+    find_client(body.client_id,ws.id,session)
+    item=SupportTicket(**body.model_dump(),workspace_id=ws.id)
+    session.add(item);session.commit();session.refresh(item)
+    return item
+
+def find_ticket(ticket_id:int,workspace_id:int,session:Session)->SupportTicket:
+    ticket=session.get(SupportTicket,ticket_id)
+    if ticket is None or ticket.workspace_id!=workspace_id:
+        raise HTTPException(404,"Ticket not found")
+    return ticket
+
+@app.patch("/api/tickets/{ticket_id}",response_model=TicketRead)
+def update_ticket(ticket_id:int,body:TicketUpdate,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id)
+    require_role(role,("owner","editor"))
+    item=find_ticket(ticket_id,ws.id,session)
+    for field,value in body.model_dump(exclude_unset=True).items():
+        if value is None: raise HTTPException(422,"Fields cannot be null")
+        setattr(item,field,value)
+    session.add(item);session.commit();session.refresh(item)
+    return item
+
+@app.delete("/api/tickets/{ticket_id}",status_code=204)
+def delete_ticket(ticket_id:int,user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
+    ws,role=workspace_access(user,session,x_workspace_id)
+    require_role(role,("owner",))
+    item=find_ticket(ticket_id,ws.id,session)
+    session.delete(item);session.commit()
