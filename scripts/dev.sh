@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start Workbase's API and web app together in one Codespaces terminal.
+# One command for both servers. Way easier.
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,7 +10,7 @@ if ! command -v python >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-# Avoid running two competing servers, or silently switching Vite to port 5174.
+# Don't run two apps on the same port.
 python - <<'PY'
 import socket
 import sys
