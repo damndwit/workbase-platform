@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 from .database import create_tables, get_session, engine
+from .email_notifications import send_team_invitation
 from .models import Client, Project, User, Workspace, WorkspaceMember, SupportTicket, TicketComment
 from .security import current_user, hash_password, verify_password, token_for_user, owned_workspace, workspace_access, require_role, ENVIRONMENT, PUBLIC_DEMO_MODE, DEMO_EMAIL
 from .schemas import (
@@ -21,7 +22,7 @@ from .schemas import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_tables()
-    if ENVIRONMENT in ("production", "public_demo") and PUBLIC_DEMO_MODE:
+    if ENVIRONMENT in ("production", "public_demo") and (PUBLIC_DEMO_MODE or os.getenv("WORKBASE_GUEST_PREVIEW", "0") == "1"):
         with Session(engine) as session:
             demo = session.exec(select(User).where(User.email == DEMO_EMAIL)).first()
             if demo is None:
@@ -55,7 +56,7 @@ origins = os.getenv("FRONTEND_ORIGINS","http://localhost:5173").split(",")
 app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=["GET","POST","PATCH","DELETE"],allow_headers=["Content-Type","Authorization","X-Workspace-Id"])
 
 @app.get("/api/health")
-def health(): return {"status":"ok","demo_available":ENVIRONMENT in ("production", "public_demo") and PUBLIC_DEMO_MODE}
+def health(): return {"status":"ok","demo_available":ENVIRONMENT in ("production", "public_demo") and (PUBLIC_DEMO_MODE or os.getenv("WORKBASE_GUEST_PREVIEW","0")=="1")}
 
 @app.post("/api/auth/register",response_model=TokenResponse,status_code=201)
 def register(body:RegisterRequest,session:Session=Depends(get_session)):
@@ -82,7 +83,7 @@ def register(body:RegisterRequest,session:Session=Depends(get_session)):
 
 @app.post("/api/auth/demo",response_model=TokenResponse)
 def demo_login(session:Session=Depends(get_session)):
-    if ENVIRONMENT not in ("production", "public_demo") or not PUBLIC_DEMO_MODE:
+    if ENVIRONMENT not in ("production", "public_demo") or not (PUBLIC_DEMO_MODE or os.getenv("WORKBASE_GUEST_PREVIEW","0")=="1"):
         raise HTTPException(404,"Not found")
     user=session.exec(select(User).where(User.email==DEMO_EMAIL)).first()
     if user is None: raise HTTPException(503,"Demo not initialized")
@@ -104,7 +105,7 @@ def me(user:User=Depends(current_user),session:Session=Depends(get_session)):
 @app.get("/api/workspaces",response_model=list[WorkspaceRead])
 def workspaces(user:User=Depends(current_user),session:Session=Depends(get_session)):
     home=owned_workspace(user,session)
-    result=[WorkspaceRead(id=home.id,name=home.name,role="viewer" if PUBLIC_DEMO_MODE and user.email == DEMO_EMAIL else "owner")]
+    result=[WorkspaceRead(id=home.id,name=home.name,role="viewer" if user.email == DEMO_EMAIL and (PUBLIC_DEMO_MODE or os.getenv("WORKBASE_GUEST_PREVIEW","0")=="1") else "owner")]
     memberships=session.exec(select(WorkspaceMember).where(WorkspaceMember.user_id==user.id,WorkspaceMember.accepted==True)).all()
     for member in memberships:
         ws=session.get(Workspace,member.workspace_id)
@@ -147,7 +148,8 @@ def invite_user(workspace_id:int,body:InvitationCreate,user:User=Depends(current
     if existing: raise HTTPException(409,"User already invited or a member")
     membership=WorkspaceMember(workspace_id=ws.id,user_id=invited.id,role=body.role)
     session.add(membership);session.commit()
-    return {"message":"Invitation saved. Recipient can accept after signing in."}
+    delivery=send_team_invitation(invited.email,ws.name,user.display_name,body.role)
+    return {"message":"Invitation saved. Recipient can accept after signing in.","email_status":delivery}
 
 @app.get("/api/clients",response_model=list[ClientRead])
 def list_clients(user:User=Depends(current_user),session:Session=Depends(get_session),x_workspace_id:int|None=Header(default=None)):
