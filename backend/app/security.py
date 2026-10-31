@@ -14,8 +14,14 @@ from .models import User, Workspace, WorkspaceMember
 
 # An ephemeral secret is safe for local demos but logins expire after a restart.
 # Configure a stable high-entropy secret before any controlled deployment.
-SECRET = os.getenv("WORKBASE_SECRET_KEY") or secrets.token_urlsafe(48)
-ISSUER = "workbase-local"
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+PUBLIC_DEMO_MODE = os.getenv("PUBLIC_DEMO_MODE", "0") == "1"
+DEMO_EMAIL = "demo@workbase.example"
+supplied_secret = os.getenv("WORKBASE_SECRET_KEY", "")
+if ENVIRONMENT == "production" and len(supplied_secret) < 32:
+    raise RuntimeError("Set WORKBASE_SECRET_KEY to a random string at least 32 characters long.")
+SECRET = supplied_secret or secrets.token_urlsafe(48)
+ISSUER = "workbase"
 ALGORITHM = "HS256"
 password_hash = PasswordHash.recommended()
 bearer = HTTPBearer(auto_error=False)
@@ -62,6 +68,10 @@ def owned_workspace(user: User, session: Session) -> Workspace:
 def workspace_access(user: User, session: Session, workspace_id: int | None = None):
     own = owned_workspace(user, session)
     target_id = workspace_id if workspace_id is not None else own.id
+    if PUBLIC_DEMO_MODE and user.email == DEMO_EMAIL:
+        if target_id != own.id:
+            raise HTTPException(403, "Demo access is restricted to its sample workspace")
+        return own, "viewer"
     if target_id == own.id:
         return own, "owner"
     membership = session.exec(select(WorkspaceMember).where(
