@@ -1,4 +1,4 @@
-# Build the Vite/React frontend using Node, then serve it with FastAPI.
+# Node builds React; Python serves the website and API.
 FROM node:22-alpine AS frontend-build
 WORKDIR /build/frontend
 COPY frontend/package*.json ./
@@ -6,6 +6,7 @@ RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
+# Keeping the server image pretty lean.
 FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
