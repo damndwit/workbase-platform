@@ -37,6 +37,10 @@ Open the forwarded **5173** port. The Vite development server forwards calls to 
 
 If port 5173 opens but the app shows an API error, check that terminal 1 is running. When developing in Codespaces, avoid exposing ports publicly.
 
+## Design
+
+Workbase uses a custom dark UI with charcoal surfaces, warm ivory text, subtle amber accents and restrained retro-computing details. The design uses local CSS and system fonts; there are no paid assets. The styling changes do not alter stored records or the backend API.
+
 ## Dashboard and filtering
 
 The interface includes a workspace selector, account controls, live project/ticket progress indicators, and client/project search with status filters. Tickets can also be searched by subject, description or client and filtered by status and priority. These filters operate on records already loaded for the selected workspace; API permissions remain enforced server-side. No database migration is needed for these interface changes.
