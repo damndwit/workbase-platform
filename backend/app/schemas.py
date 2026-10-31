@@ -12,6 +12,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=10, max_length=128)
     workspace_name: str = Field(min_length=2, max_length=100)
+    signup_code: str | None = Field(default=None, max_length=160)
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -119,4 +120,15 @@ class TicketRead(BaseModel):
     description: str
     priority: TicketPriority
     status: TicketStatus
+    created_at: datetime
+
+# Ticket notes live in their own table so conversations don't overwrite each other.
+class TicketCommentCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+class TicketCommentRead(BaseModel):
+    id: int
+    ticket_id: int
+    author: str
+    body: str
     created_at: datetime
