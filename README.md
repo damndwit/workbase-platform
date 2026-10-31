@@ -1,10 +1,18 @@
 # Workbase
 
+**[Live public demo](https://workbase-demo.onrender.com/)** · **[Deployment details](DEPLOYMENT.md)** · **[GitHub Actions](https://github.com/damndwit/workbase-platform/actions)**
+
 A small business management web app built with React, TypeScript, FastAPI and SQLModel.
 
 The current version supports user registration, login, personally owned and shared team workspaces, client records, projects, support tickets, status updates and dashboard totals. It's an early version, built independently rather than copying a SaaS template.
 
 **Stack:** React, TypeScript, Vite, HTML/CSS, Python, FastAPI, SQLModel, JWT, Argon2, SQLite (local default), PostgreSQL (configurable), pytest, GitHub Actions.
+
+## Public portfolio demo
+
+The app is live on the **Render Free plan** at [workbase-demo.onrender.com](https://workbase-demo.onrender.com/). Choose **Explore read-only demo** to view seeded fictional clients, projects, support tickets, and dashboard analytics without registering. Hosted registration is disabled, and API authorization enforces read-only access to the demo account. Automated tests check registration restrictions and API write restrictions.
+
+This public portfolio demonstration uses temporary local SQLite storage on the free Render instance. It does **not** preserve changes or guarantee continuous uptime across restarts/redeploys. The original Codespaces development database is independent. [See deployment and limitations](DEPLOYMENT.md).
 
 ## Run in GitHub Codespaces
 
@@ -111,7 +119,9 @@ For PostgreSQL, install and configure a database and set `DATABASE_URL` to a val
 
 ## Current limitations
 
-**Do not deploy this application publicly yet.** Registration, password hashing, signed bearer tokens, and workspace role checks are implemented for local testing, but this is **not a production security review**. No email verification, invitation notifications, membership removal, account recovery, rate limiting, robust session management or schema migrations exist yet. Only use fictional sample data. The default signing secret is ephemeral and changes when the backend restarts; this intentionally signs out existing sessions. For persistent local sessions, set `WORKBASE_SECRET_KEY` as a private environment variable; never commit it to GitHub. Token storage in browser sessionStorage is a developmental choice, not hardened production session design.
+The **public Render deployment** is deliberately limited to a fictional, read-only portfolio demo. It is not a commercially hardened SaaS service or appropriate for real customer information. Its ephemeral database resets on redeployment; free instances can spin down when inactive.
+
+The **local Codespaces version** supports registration, team workspaces and CRUD for development exercises but should not be exposed as a public service without more security work. There is no email verification, invitation notification, account recovery, rate limiting, hardened browser session design, membership removal workflow or formal schema migration system. Never commit credentials; do not use real customer data.
 
 ## Repository structure
 
@@ -126,4 +136,4 @@ For PostgreSQL, install and configure a database and set `DATABASE_URL` to a val
 
 This repository contains original source code for the Workbase learning project.
 
-**Status:** Dashboard design, progress analytics and search/filter tools are implemented. Confirm the current CI checks and smoke-test them in Codespaces before considering this release verified.
+**Status:** Public read-only demo live on Render; initial browser views and automated CI checks have passed. This does not constitute a security audit.
