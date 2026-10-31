@@ -16,7 +16,7 @@ def send_team_invitation(address: str, workspace: str, inviter: str, role: str) 
     if not api_key or not sender:
         return "not_configured"
 
-    site = os.getenv("WORKBASE_PUBLIC_URL", "https://workbase-demo.onrender.com").rstrip("/")
+    site = (os.getenv("WORKBASE_PUBLIC_URL") or os.getenv("RENDER_EXTERNAL_URL") or "https://workbase-demo.onrender.com").rstrip("/")
     message = (
         f"{inviter} invited you to join {workspace} on Workbase as a {role}.\n\n"
         f"Open {site}, sign in using your existing account, then open Team "
