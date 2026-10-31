@@ -1,45 +1,49 @@
-# Deploy the Workbase portfolio demo
+# Workbase public deployment
 
-This configuration publishes **one Docker-based service** on Render. It serves both the built React frontend and the FastAPI backend from the same origin. A Neon PostgreSQL database stores the sample records. Open registration is disabled and visitors enter through a **read-only demo**; the application cannot create, edit or delete any sample client, project or ticket through the demo account.
+**Live demo:** https://workbase-demo.onrender.com/
 
-## 1. Database (Neon)
+Workbase runs on a single **Render Free Docker web service** connected to this repository. The Dockerfile builds React using Node.js, installs the FastAPI backend with Python, and serves the compiled UI and API from one origin.
 
-Create a free PostgreSQL database at https://console.neon.tech and copy its connection URL from Neon's dashboard. Use a connection string with SSL enabled (Neon supplies this). The URL looks like `postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require`. Do **not** commit or paste a real URL into a public file or chat.
+## Current free launch configuration
 
-Neon's free plan and Render's free service have usage and sleep limits; review their current pricing before confirming any provision.
+- Render service: `workbase-demo` (Free plan, Virginia).
+- Environment: `ENVIRONMENT=public_demo` and `PUBLIC_DEMO_MODE=1`.
+- Database: local SQLite on Render's **ephemeral** container filesystem, seeded with **fictional** clients, projects and tickets at startup.
+- Visitor access: **Explore read-only demo**; no password or new account required.
+- Permissions: server-side workspace role checks restrict the public demo token to viewer access. Hosted account registration is disabled.
+- Automatic deployments: connected to the repository's `main` branch.
 
-## 2. Create the Render web service
+**The database can reset when the service restarts or redeploys.** This is intentional for a read-only recruiter demo. It is not suitable for storing real user data or modifications. Use the Codespaces development environment for CRUD testing.
 
-Go to https://dashboard.render.com/select-repo?type=blueprint and connect your GitHub repository `damndwit/workbase-platform`, using the **Blueprint** flow if available. The repository root contains `render.yaml`. Confirm the service is **Free** before proceeding. Render may ask for payment details, and this setup cannot guarantee there will never be charges if you change plans.
+## Deploying the same free demo
 
-Render's deployment settings are defined in `render.yaml`: its Docker build compiles the React frontend using Node.js and bundles it with a Python FastAPI runtime. No Node.js installation on the Render Python host is needed. When prompted for `DATABASE_URL`, paste the private PostgreSQL connection URL **only in Render's environment-variable field**. Render generates a random `WORKBASE_SECRET_KEY`; never share this secret.
+1. Sign into [Render](https://dashboard.render.com/) and connect the GitHub repository `damndwit/workbase-platform`.
+2. Create a **Web Service** using the repository's `Dockerfile` or choose the repository's `render.yaml` Blueprint.
+3. Select the **Free** plan and Docker runtime. Set `ENVIRONMENT=public_demo` and `PUBLIC_DEMO_MODE=1`.
+4. Publish the service and open its assigned `.onrender.com` URL.
+5. Use **Explore read-only demo** and check the Overview, Clients, Projects, Tickets and Team pages.
 
-No public credentials need to be created. On initial startup, Workbase creates a fictional read-only demo workspace and data automatically. Refreshes and restarts use the existing database records; do not delete the Neon database after launch.
+Do not set `ENVIRONMENT=production` without a persistent PostgreSQL database and a strong `WORKBASE_SECRET_KEY`. The `production` option is a separate, more advanced configuration; it is **not required** for the existing free demonstration.
 
-## 3. Test before sharing
+## Smoke tests
 
-Open the Render-generated `.onrender.com` URL and verify:
-- Page displays a **Explore read-only demo** button.
-- Clicking it opens a workspace with fictional clients, projects and tickets.
-- Viewing the dashboard and filtering records works.
-- The interface does **not** offer mutation controls for the demo viewer.
-- Direct API attempts to create/update/delete with the demo token return HTTP 403. The backend, not just the UI, enforces this.
-- `/api/health` returns a working status and `/docs` displays the API documentation.
-- Redeploying does not erase the seeded data.
+- `GET /api/health` returns HTTP 200 with `demo_available: true`.
+- The live React dashboard loads sample clients, projects and tickets.
+- Sign-in is available through the demo button, without public registration.
+- Demo viewers cannot create, edit or delete records; the API also rejects these operations.
+- The GitHub Actions workflow runs Python backend tests and a TypeScript/React build.
 
-## Important limitations
+## Limits and future hosting
 
-This is a **portfolio demo**, not a secure multi-tenant commercial SaaS service. It has not undergone an external security audit, lacks account recovery, rate limiting, production-grade cookie sessions, and migration tracking. Hosted registration is disabled and only synthetic information should be used. Never use real clients' or employees' data, and do not enable unrestricted registrations or real business use without additional hardening.
+Render Free instances may sleep when inactive and take time to resume. Free-plan quotas and availability may change. The domain `workbase-demo.onrender.com` is included with hosting; an independently registered `.com` normally costs money.
 
-Render free services can sleep after inactivity and may take time to wake. Neon free storage is limited. A free `.onrender.com` URL is included; a personally owned `.com` domain still generally requires paying a registrar. If you already own a domain, connecting it may not incur extra hosting fees.
+To support permanent data and real user accounts in the future, use persistent PostgreSQL (such as Neon), formal schema migrations, production-managed signing keys, rate limiting, improved session handling, account recovery and a separate security review. **Do not store real customer information in this demo.**
 
 ## Local development
 
-Codespaces continues to use the existing SQLite database and normal registration/login without the production flags:
+GitHub Codespaces keeps its existing independent SQLite database and normal registration and editing features:
 
 ```bash
 cd /workspaces/workbase-platform
 bash scripts/dev.sh
 ```
-
-**Never set `ENVIRONMENT=production` in your local Codespace unless you intentionally configured PostgreSQL and production secrets.**
