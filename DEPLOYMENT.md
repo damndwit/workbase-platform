@@ -1,6 +1,6 @@
 # Deploy the Workbase portfolio demo
 
-This configuration publishes **one** service on Render. It serves both the built React frontend and the FastAPI backend from the same origin. A Neon PostgreSQL database stores the sample records. Open registration is disabled and visitors enter through a **read-only demo**; the application cannot create, edit or delete any sample client, project or ticket through the demo account.
+This configuration publishes **one Docker-based service** on Render. It serves both the built React frontend and the FastAPI backend from the same origin. A Neon PostgreSQL database stores the sample records. Open registration is disabled and visitors enter through a **read-only demo**; the application cannot create, edit or delete any sample client, project or ticket through the demo account.
 
 ## 1. Database (Neon)
 
@@ -12,7 +12,7 @@ Neon's free plan and Render's free service have usage and sleep limits; review t
 
 Go to https://dashboard.render.com/select-repo?type=blueprint and connect your GitHub repository `damndwit/workbase-platform`, using the **Blueprint** flow if available. The repository root contains `render.yaml`. Confirm the service is **Free** before proceeding. Render may ask for payment details, and this setup cannot guarantee there will never be charges if you change plans.
 
-Render's deployment settings are defined in `render.yaml`: install Python dependencies, build the React frontend, serve both with Uvicorn. When prompted for `DATABASE_URL`, paste the private PostgreSQL connection URL **only in Render's environment-variable field**. Render generates a random `WORKBASE_SECRET_KEY`; never share this secret.
+Render's deployment settings are defined in `render.yaml`: its Docker build compiles the React frontend using Node.js and bundles it with a Python FastAPI runtime. No Node.js installation on the Render Python host is needed. When prompted for `DATABASE_URL`, paste the private PostgreSQL connection URL **only in Render's environment-variable field**. Render generates a random `WORKBASE_SECRET_KEY`; never share this secret.
 
 No public credentials need to be created. On initial startup, Workbase creates a fictional read-only demo workspace and data automatically. Refreshes and restarts use the existing database records; do not delete the Neon database after launch.
 
