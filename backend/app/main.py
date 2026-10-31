@@ -20,7 +20,7 @@ from .schemas import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_tables()
-    if ENVIRONMENT == "production" and PUBLIC_DEMO_MODE:
+    if ENVIRONMENT in ("production", "public_demo") and PUBLIC_DEMO_MODE:
         with Session(engine) as session:
             demo = session.exec(select(User).where(User.email == DEMO_EMAIL)).first()
             if demo is None:
@@ -54,11 +54,11 @@ origins = os.getenv("FRONTEND_ORIGINS","http://localhost:5173").split(",")
 app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=["GET","POST","PATCH","DELETE"],allow_headers=["Content-Type","Authorization","X-Workspace-Id"])
 
 @app.get("/api/health")
-def health(): return {"status":"ok","demo_available":ENVIRONMENT == "production" and PUBLIC_DEMO_MODE}
+def health(): return {"status":"ok","demo_available":ENVIRONMENT in ("production", "public_demo") and PUBLIC_DEMO_MODE}
 
 @app.post("/api/auth/register",response_model=TokenResponse,status_code=201)
 def register(body:RegisterRequest,session:Session=Depends(get_session)):
-    if ENVIRONMENT == "production":
+    if ENVIRONMENT in ("production", "public_demo"):
         raise HTTPException(403, "Registration is disabled on this public portfolio demo")
     email=str(body.email).lower()
     if session.exec(select(User).where(User.email==email)).first():
@@ -77,7 +77,7 @@ def register(body:RegisterRequest,session:Session=Depends(get_session)):
 
 @app.post("/api/auth/demo",response_model=TokenResponse)
 def demo_login(session:Session=Depends(get_session)):
-    if ENVIRONMENT != "production" or not PUBLIC_DEMO_MODE:
+    if ENVIRONMENT not in ("production", "public_demo") or not PUBLIC_DEMO_MODE:
         raise HTTPException(404,"Not found")
     user=session.exec(select(User).where(User.email==DEMO_EMAIL)).first()
     if user is None: raise HTTPException(503,"Demo not initialized")
